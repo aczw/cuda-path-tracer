@@ -42,7 +42,7 @@ void checkCUDAErrorFn(const char* msg, const char* file, int line) {
 }
 
 __host__ __device__ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
-  int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
+  int h = util_hash((1 << 31) | (depth << 22) | iter) ^ util_hash(index);
   return thrust::default_random_engine(h);
 }
 
@@ -180,9 +180,9 @@ __global__ void computeIntersections(int depth,
       Geom& geom = geoms[i];
 
       if (geom.type == CUBE) {
-        t = boxIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+        t = box_intersection_test(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
       } else if (geom.type == SPHERE) {
-        t = sphereIntersectionTest(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
+        t = sphere_intersection_test(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
       }
       // TODO: add more intersection tests here... triangle? metaball? CSG?
 
