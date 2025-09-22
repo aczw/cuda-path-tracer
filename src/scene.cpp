@@ -80,7 +80,7 @@ void Scene::loadFromJSON(const std::string& jsonName) {
   camera.resolution.x = cameraData["RES"][0];
   camera.resolution.y = cameraData["RES"][1];
   float fovy = cameraData["FOVY"];
-  state.iterations = cameraData["ITERATIONS"];
+  state.total_iterations = cameraData["ITERATIONS"];
   state.trace_depth = cameraData["DEPTH"];
   state.image_name = cameraData["FILE"];
   const auto& pos = cameraData["EYE"];

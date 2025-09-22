@@ -54,7 +54,7 @@ struct Camera {
 
 struct RenderState {
   Camera camera;
-  unsigned int iterations;
+  unsigned int total_iterations;
   int trace_depth;
   std::vector<glm::vec3> image;
   std::string image_name;
@@ -63,7 +63,6 @@ struct RenderState {
 struct PathSegment {
   Ray ray;
   glm::vec3 color;
-  glm::vec3 radiance;
   int pixel_index;
   int remaining_bounces;
 };
@@ -83,3 +82,8 @@ struct Intersection {
   glm::vec3 surface_normal;
   bool is_outside;
 };
+
+// Three cases
+// - Intersection hit light, path ends
+// - Intersection goes out of bounds, doesn't hit anything
+// - Path reaches max depth, never hit a light

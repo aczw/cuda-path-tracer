@@ -43,7 +43,7 @@ glm::vec3 ogLookAt;  // for recentering the camera
 Scene* scene;
 GuiDataContainer* gui_data;
 RenderState* renderState;
-int iteration;
+int curr_iteration;
 
 int width;
 int height;
@@ -278,7 +278,7 @@ void mainLoop() {
     runCuda();
 
     std::string title =
-        "CIS565 Path Tracer | " + utilityCore::convertIntToString(iteration) + " Iterations";
+        "CIS565 Path Tracer | " + utilityCore::convertIntToString(curr_iteration) + " Iterations";
     glfwSetWindowTitle(window, title.c_str());
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBindTexture(GL_TEXTURE_2D, displayImage);
@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
   gui_data = new GuiDataContainer();
 
   // Set up camera stuff from loaded path tracer settings
-  iteration = 0;
+  curr_iteration = 0;
   renderState = &scene->state;
   Camera& cam = renderState->camera;
   width = cam.resolution.x;
@@ -362,7 +362,7 @@ int main(int argc, char** argv) {
 }
 
 void saveImage() {
-  float samples = iteration;
+  float samples = curr_iteration;
   // output image file
   Image img(width, height);
 
@@ -386,7 +386,7 @@ void saveImage() {
 
 void runCuda() {
   if (camchanged) {
-    iteration = 0;
+    curr_iteration = 0;
     Camera& cam = renderState->camera;
     cameraPosition.x = zoom * sin(phi) * sin(theta);
     cameraPosition.y = zoom * cos(theta);
@@ -408,19 +408,19 @@ void runCuda() {
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
-  if (iteration == 0) {
+  if (curr_iteration == 0) {
     path_trace_free();
     path_trace_init(scene);
   }
 
-  if (iteration < renderState->iterations) {
+  if (curr_iteration < renderState->total_iterations) {
     uchar4* pbo_dptr = NULL;
-    iteration++;
+    curr_iteration++;
     cudaGLMapBufferObject((void**)&pbo_dptr, pbo);
 
     // execute the kernel
     int frame = 0;
-    path_trace(pbo_dptr, frame, iteration);
+    path_trace(pbo_dptr, frame, curr_iteration);
 
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
