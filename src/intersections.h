@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sceneStructs.h"
+#include "scene_structs.h"
 
 #include <glm/glm.hpp>
 #include <glm/gtx/intersect.hpp>
@@ -44,7 +44,7 @@ __host__ __device__ inline glm::vec3 multiply_mat4_vec4(glm::mat4 m, glm::vec4 v
  * @param outside Output param for whether the ray came from outside.
  * @return Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float box_intersection_test(Geom box,
+__host__ __device__ float box_intersection_test(Geometry box,
                                                 Ray r,
                                                 glm::vec3& intersection_point,
                                                 glm::vec3& normal,
@@ -60,7 +60,7 @@ __host__ __device__ float box_intersection_test(Geom box,
  * @param outside Output parameter for whether the ray came from outside.
  * @return Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float sphere_intersection_test(Geom sphere,
+__host__ __device__ float sphere_intersection_test(Geometry sphere,
                                                    Ray r,
                                                    glm::vec3& intersection_point,
                                                    glm::vec3& normal,

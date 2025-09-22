@@ -9,22 +9,22 @@
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
 
-enum GeomType { SPHERE, CUBE };
-
 struct Ray {
   glm::vec3 origin;
   glm::vec3 direction;
 };
 
-struct Geom {
-  enum GeomType type;
-  int materialid;
+struct Geometry {
+  enum class Type { Sphere, Cube };
+
+  Type type;
+  int material_id;
   glm::vec3 translation;
   glm::vec3 rotation;
   glm::vec3 scale;
   glm::mat4 transform;
-  glm::mat4 inverseTransform;
-  glm::mat4 invTranspose;
+  glm::mat4 inv_transform;
+  glm::mat4 inv_transpose;
 };
 
 struct Material {
@@ -35,9 +35,9 @@ struct Material {
     glm::vec3 color;
   } specular;
 
-  float hasReflective;
-  float hasRefractive;
-  float indexOfRefraction;
+  float has_reflective;
+  float has_refractive;
+  float index_of_refraction;
   float emittance;
 };
 

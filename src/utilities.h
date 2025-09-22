@@ -2,6 +2,8 @@
 
 #include "glm/glm.hpp"
 
+#include <cuda.h>
+
 #include <algorithm>
 #include <istream>
 #include <iterator>

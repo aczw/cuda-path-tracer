@@ -4,7 +4,7 @@
 #include "intersections.h"
 #include "pathtrace.h"
 #include "scene.h"
-#include "sceneStructs.h"
+#include "scene_structs.h"
 #include "utilities.h"
 
 #include <cuda.h>
@@ -71,7 +71,7 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm
 static Scene* hst_scene = NULL;
 static GuiDataContainer* guiData = NULL;
 static glm::vec3* dev_image = NULL;
-static Geom* dev_geoms = NULL;
+static Geometry* dev_geoms = NULL;
 static Material* dev_materials = NULL;
 static PathSegment* dev_paths = NULL;
 static ShadeableIntersection* dev_intersections = NULL;
@@ -94,8 +94,8 @@ void pathtraceInit(Scene* scene) {
 
   cudaMalloc(&dev_paths, pixelcount * sizeof(PathSegment));
 
-  cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geom));
-  cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geom), cudaMemcpyHostToDevice);
+  cudaMalloc(&dev_geoms, scene->geoms.size() * sizeof(Geometry));
+  cudaMemcpy(dev_geoms, scene->geoms.data(), scene->geoms.size() * sizeof(Geometry), cudaMemcpyHostToDevice);
 
   cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
   cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material),
@@ -156,7 +156,7 @@ __global__ void generateRayFromCamera(Camera cam, int iter, int traceDepth, Path
 __global__ void computeIntersections(int depth,
                                      int num_paths,
                                      PathSegment* pathSegments,
-                                     Geom* geoms,
+                                     Geometry* geoms,
                                      int geoms_size,
                                      ShadeableIntersection* intersections) {
   int path_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -177,11 +177,11 @@ __global__ void computeIntersections(int depth,
     // naive parse through global geoms
 
     for (int i = 0; i < geoms_size; i++) {
-      Geom& geom = geoms[i];
+      Geometry& geom = geoms[i];
 
-      if (geom.type == CUBE) {
+      if (geom.type == Geometry::Type::Cube) {
         t = box_intersection_test(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
-      } else if (geom.type == SPHERE) {
+      } else if (geom.type == Geometry::Type::Sphere) {
         t = sphere_intersection_test(geom, pathSegment.ray, tmp_intersect, tmp_normal, outside);
       }
       // TODO: add more intersection tests here... triangle? metaball? CSG?
@@ -201,7 +201,7 @@ __global__ void computeIntersections(int depth,
     } else {
       // The ray hits something
       intersections[path_index].t = t_min;
-      intersections[path_index].materialId = geoms[hit_geom_index].materialid;
+      intersections[path_index].materialId = geoms[hit_geom_index].material_id;
       intersections[path_index].surfaceNormal = normal;
     }
   }

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "sceneStructs.h"
+#include "scene_structs.h"
 
 #include <thrust/random.h>
 
@@ -21,7 +21,7 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3
  * The visual effect you want is to straight-up add the diffuse and specular components. You can do this in a few ways.
  * This logic also applies to combining other types of materias (such as refractive).
  *
- * - Always take an even (50/50) split between a each effect (a diffuse bounce and a specular bounce), but divide the
+ * - Always take an even (50/50) split between each effect (a diffuse bounce and a specular bounce), but divide the
  * resulting color of either branch by its probability (0.5), to counteract the chance (0.5) of the branch being taken.
  * - This way is inefficient, but serves as a good starting point - it converges slowly, especially for pure-diffuse
  * or pure-specular.
@@ -32,7 +32,7 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3
  * place.
  */
 __host__ __device__ void scatter_ray(PathSegment& path_segment,
-                                     glm::vec3 intersect,
+                                     glm::vec3 intersection_point,
                                      glm::vec3 normal,
                                      const Material& m,
                                      thrust::default_random_engine& rng);

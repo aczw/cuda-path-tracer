@@ -5,7 +5,7 @@
 #include "image.h"
 #include "pathtrace.h"
 #include "scene.h"
-#include "sceneStructs.h"
+#include "scene_structs.h"
 #include "utilities.h"
 
 #include <cuda_gl_interop.h>

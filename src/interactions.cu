@@ -30,11 +30,17 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3
 }
 
 __host__ __device__ void scatter_ray(PathSegment& path_segment,
-                                     glm::vec3 intersect,
+                                     glm::vec3 intersection_point,
                                      glm::vec3 normal,
                                      const Material& m,
                                      thrust::default_random_engine& rng) {
-  // TODO: implement this.
-  // A basic implementation of pure-diffuse shading will just call the
-  // calculate_random_direction_in_hemisphere defined above.
+  Ray& ray = path_segment.ray;
+  glm::vec3& color = path_segment.color;
+
+  // Offset a little from the intersection surface
+  ray.direction = calculate_random_direction_in_hemisphere(normal, rng);
+  ray.origin = intersection_point + EPSILON * ray.direction;
+
+  // TODO(aczw): figure out color contribution calculation
+  color *= m.color;
 }

@@ -53,13 +53,13 @@ void Scene::loadFromJSON(const std::string& jsonName) {
   const auto& objectsData = data["Objects"];
   for (const auto& p : objectsData) {
     const auto& type = p["TYPE"];
-    Geom newGeom;
+    Geometry newGeom;
     if (type == "cube") {
-      newGeom.type = CUBE;
+      newGeom.type = Geometry::Type::Cube;
     } else {
-      newGeom.type = SPHERE;
+      newGeom.type = Geometry::Type::Sphere;
     }
-    newGeom.materialid = MatNameToID[p["MATERIAL"]];
+    newGeom.material_id = MatNameToID[p["MATERIAL"]];
     const auto& trans = p["TRANS"];
     const auto& rotat = p["ROTAT"];
     const auto& scale = p["SCALE"];
@@ -67,8 +67,8 @@ void Scene::loadFromJSON(const std::string& jsonName) {
     newGeom.rotation = glm::vec3(rotat[0], rotat[1], rotat[2]);
     newGeom.scale = glm::vec3(scale[0], scale[1], scale[2]);
     newGeom.transform = utilityCore::buildTransformationMatrix(newGeom.translation, newGeom.rotation, newGeom.scale);
-    newGeom.inverseTransform = glm::inverse(newGeom.transform);
-    newGeom.invTranspose = glm::inverseTranspose(newGeom.transform);
+    newGeom.inv_transform = glm::inverse(newGeom.transform);
+    newGeom.inv_transpose = glm::inverseTranspose(newGeom.transform);
 
     geoms.push_back(newGeom);
   }

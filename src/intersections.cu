@@ -1,13 +1,13 @@
 #include "intersections.h"
 
-__host__ __device__ float box_intersection_test(Geom box,
+__host__ __device__ float box_intersection_test(Geometry box,
                                                 Ray r,
                                                 glm::vec3& intersection_point,
                                                 glm::vec3& normal,
                                                 bool& outside) {
   Ray q;
-  q.origin = multiply_mat4_vec4(box.inverseTransform, glm::vec4(r.origin, 1.0f));
-  q.direction = glm::normalize(multiply_mat4_vec4(box.inverseTransform, glm::vec4(r.direction, 0.0f)));
+  q.origin = multiply_mat4_vec4(box.inv_transform, glm::vec4(r.origin, 1.0f));
+  q.direction = glm::normalize(multiply_mat4_vec4(box.inv_transform, glm::vec4(r.direction, 0.0f)));
 
   float t_min = -1e38f;
   float t_max = 1e38f;
@@ -43,22 +43,22 @@ __host__ __device__ float box_intersection_test(Geom box,
       outside = false;
     }
     intersection_point = multiply_mat4_vec4(box.transform, glm::vec4(get_point_on_ray(q, t_min), 1.0f));
-    normal = glm::normalize(multiply_mat4_vec4(box.invTranspose, glm::vec4(t_min_n, 0.0f)));
+    normal = glm::normalize(multiply_mat4_vec4(box.inv_transpose, glm::vec4(t_min_n, 0.0f)));
     return glm::length(r.origin - intersection_point);
   }
 
   return -1;
 }
 
-__host__ __device__ float sphere_intersection_test(Geom sphere,
+__host__ __device__ float sphere_intersection_test(Geometry sphere,
                                                    Ray r,
                                                    glm::vec3& intersection_point,
                                                    glm::vec3& normal,
                                                    bool& outside) {
   float radius = .5;
 
-  glm::vec3 ro = multiply_mat4_vec4(sphere.inverseTransform, glm::vec4(r.origin, 1.0f));
-  glm::vec3 rd = glm::normalize(multiply_mat4_vec4(sphere.inverseTransform, glm::vec4(r.direction, 0.0f)));
+  glm::vec3 ro = multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.origin, 1.0f));
+  glm::vec3 rd = glm::normalize(multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.direction, 0.0f)));
 
   Ray rt;
   rt.origin = ro;
@@ -89,7 +89,7 @@ __host__ __device__ float sphere_intersection_test(Geom sphere,
   glm::vec3 obj_space_intersection = get_point_on_ray(rt, t);
 
   intersection_point = multiply_mat4_vec4(sphere.transform, glm::vec4(obj_space_intersection, 1.f));
-  normal = glm::normalize(multiply_mat4_vec4(sphere.invTranspose, glm::vec4(obj_space_intersection, 0.f)));
+  normal = glm::normalize(multiply_mat4_vec4(sphere.inv_transpose, glm::vec4(obj_space_intersection, 0.f)));
   if (!outside) {
     normal = -normal;
   }
