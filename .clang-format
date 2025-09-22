@@ -1,6 +1,6 @@
 BasedOnStyle: Chromium
 
-ColumnLimit: 120
+ColumnLimit: 100
 InsertNewlineAtEOF: true
 AllowShortIfStatementsOnASingleLine: WithoutElse
 WrapNamespaceBodyWithEmptyLines: Always
@@ -13,7 +13,7 @@ IncludeCategories:
     Priority: 1
   - Regex: '^<(cuda*|thrust*|cub*).*>'
     Priority: 2
-  - Regex: '^<glm*.*>'
+  - Regex: '^<(glm*|stb_*).*>'
     Priority: 3
   - Regex: '^<.*>'
     Priority: 4

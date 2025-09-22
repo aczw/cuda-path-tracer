@@ -94,7 +94,10 @@ void printLinkInfoLog(GLint prog) {
   }
 }
 
-void compileShader(const char* shaderName, const char* shaderSource, GLenum shaderType, GLint& shaders) {
+void compileShader(const char* shaderName,
+                   const char* shaderSource,
+                   GLenum shaderType,
+                   GLint& shaders) {
   GLint s;
   s = glCreateShader(shaderType);
 
@@ -122,7 +125,8 @@ shaders_t loadDefaultShaders() {
   shaders_t out;
 
   compileShader("Passthrough Vertex", passthroughVS.c_str(), GL_VERTEX_SHADER, (GLint&)out.vertex);
-  compileShader("Passthrough Fragment", passthroughFS.c_str(), GL_FRAGMENT_SHADER, (GLint&)out.fragment);
+  compileShader("Passthrough Fragment", passthroughFS.c_str(), GL_FRAGMENT_SHADER,
+                (GLint&)out.fragment);
 
   return out;
 }

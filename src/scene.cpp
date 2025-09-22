@@ -3,9 +3,10 @@
 #include "json.hpp"
 #include "utilities.h"
 
-#include <fstream>
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtx/string_cast.hpp>
+
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -66,7 +67,8 @@ void Scene::loadFromJSON(const std::string& jsonName) {
     newGeom.translation = glm::vec3(trans[0], trans[1], trans[2]);
     newGeom.rotation = glm::vec3(rotat[0], rotat[1], rotat[2]);
     newGeom.scale = glm::vec3(scale[0], scale[1], scale[2]);
-    newGeom.transform = utilityCore::buildTransformationMatrix(newGeom.translation, newGeom.rotation, newGeom.scale);
+    newGeom.transform = utilityCore::buildTransformationMatrix(newGeom.translation,
+                                                               newGeom.rotation, newGeom.scale);
     newGeom.inv_transform = glm::inverse(newGeom.transform);
     newGeom.inv_transpose = glm::inverseTranspose(newGeom.transform);
 
@@ -95,7 +97,8 @@ void Scene::loadFromJSON(const std::string& jsonName) {
   camera.fov = glm::vec2(fovx, fovy);
 
   camera.right = glm::normalize(glm::cross(camera.view, camera.up));
-  camera.pixelLength = glm::vec2(2 * xscaled / (float)camera.resolution.x, 2 * yscaled / (float)camera.resolution.y);
+  camera.pixelLength =
+      glm::vec2(2 * xscaled / (float)camera.resolution.x, 2 * yscaled / (float)camera.resolution.y);
 
   camera.view = glm::normalize(camera.lookAt - camera.position);
 

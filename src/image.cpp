@@ -1,7 +1,8 @@
 #include "image.h"
 
-#include <iostream>
 #include <stb_image_write.h>
+
+#include <iostream>
 #include <string>
 
 Image::Image(int x, int y) : xSize(x), ySize(y), pixels(new glm::vec3[x * y]) {}
