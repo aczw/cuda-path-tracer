@@ -2,8 +2,9 @@
 
 #include "scene_structs.h"
 
+#include <cuda/std/optional>
+
 #include <glm/glm.hpp>
-#include <glm/gtx/intersect.hpp>
 
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
@@ -34,7 +35,6 @@ __host__ __device__ inline glm::vec3 multiply_mat4_vec4(glm::mat4 m, glm::vec4 v
   return glm::vec3(m * v);
 }
 
-// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed cube. Untransformed, the cube ranges from -0.5 to 0.5 in each axis
  * and is centered at the origin.
@@ -42,15 +42,10 @@ __host__ __device__ inline glm::vec3 multiply_mat4_vec4(glm::mat4 m, glm::vec4 v
  * @param intersection_point Output parameter for point of intersection.
  * @param normal Output parameter for surface normal.
  * @param outside Output param for whether the ray came from outside.
- * @return Ray parameter `t` value. -1 if no intersection.
+ * @return  Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float box_intersection_test(Geometry box,
-                                                Ray r,
-                                                glm::vec3& intersection_point,
-                                                glm::vec3& normal,
-                                                bool& outside);
+__host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(Geometry box, Ray r);
 
-// CHECKITOUT
 /**
  * Test intersection between a ray and a transformed sphere. Untransformed, the sphere always has radius 0.5 and is
  * centered at the origin.
@@ -60,8 +55,4 @@ __host__ __device__ float box_intersection_test(Geometry box,
  * @param outside Output parameter for whether the ray came from outside.
  * @return Ray parameter `t` value. -1 if no intersection.
  */
-__host__ __device__ float sphere_intersection_test(Geometry sphere,
-                                                   Ray r,
-                                                   glm::vec3& intersection_point,
-                                                   glm::vec3& normal,
-                                                   bool& outside);
+__host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(Geometry sphere, Ray r);

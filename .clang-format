@@ -6,13 +6,14 @@ AllowShortIfStatementsOnASingleLine: WithoutElse
 WrapNamespaceBodyWithEmptyLines: Always
 SeparateDefinitionBlocks: Always
 
+# Local includes, then CCCL libraries, then 3rd party libraries, then standard library
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^".*"'
     Priority: 1
-  - Regex: '^<cuda*.*>'
+  - Regex: '^<(cuda*|thrust*|cub*).*>'
     Priority: 2
-  - Regex: '^<thrust*.*>'
+  - Regex: '^<glm*.*>'
     Priority: 3
   - Regex: '^<.*>'
     Priority: 4

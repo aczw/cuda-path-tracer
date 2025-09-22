@@ -1,8 +1,8 @@
 #pragma once
 
-#include "glm/glm.hpp"
-
 #include <cuda.h>
+
+#include <glm/glm.hpp>
 
 #include <algorithm>
 #include <istream>
@@ -19,9 +19,9 @@
 
 class GuiDataContainer {
  public:
-  GuiDataContainer() : TracedDepth(0) {}
+  GuiDataContainer() : traced_depth(0) {}
 
-  int TracedDepth;
+  int traced_depth;
 };
 
 namespace utilityCore {

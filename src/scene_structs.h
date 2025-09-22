@@ -1,8 +1,8 @@
 #pragma once
 
-#include "glm/glm.hpp"
-
 #include <cuda_runtime.h>
+
+#include <glm/glm.hpp>
 
 #include <string>
 #include <vector>
@@ -55,23 +55,31 @@ struct Camera {
 struct RenderState {
   Camera camera;
   unsigned int iterations;
-  int traceDepth;
+  int trace_depth;
   std::vector<glm::vec3> image;
-  std::string imageName;
+  std::string image_name;
 };
 
 struct PathSegment {
   Ray ray;
   glm::vec3 color;
-  int pixelIndex;
-  int remainingBounces;
+  glm::vec3 radiance;
+  int pixel_index;
+  int remaining_bounces;
 };
 
 // Use with a corresponding PathSegment to do:
 // 1) color contribution computation
 // 2) BSDF evaluation: generate a new ray
-struct ShadeableIntersection {
+struct ShadingData {
   float t;
-  glm::vec3 surfaceNormal;
-  int materialId;
+  glm::vec3 surface_normal;
+  int material_id;
+};
+
+struct Intersection {
+  float t;
+  glm::vec3 point;
+  glm::vec3 surface_normal;
+  bool is_outside;
 };

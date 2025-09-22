@@ -13,11 +13,12 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
+
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
-#include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -255,7 +256,7 @@ void RenderImGui() {
   //     counter++;
   // ImGui::SameLine();
   // ImGui::Text("counter = %d", counter);
-  ImGui::Text("Traced Depth %d", imguiData->TracedDepth);
+  ImGui::Text("Traced Depth %d", imguiData->traced_depth);
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
               ImGui::GetIO().Framerate);
   ImGui::End();
@@ -370,7 +371,7 @@ void saveImage() {
     }
   }
 
-  std::string filename = renderState->imageName;
+  std::string filename = renderState->image_name;
   std::ostringstream ss;
   ss << filename << "." << startTimeString << "." << samples << "samp";
   filename = ss.str();
@@ -416,7 +417,7 @@ void runCuda() {
 
     // execute the kernel
     int frame = 0;
-    pathtrace(pbo_dptr, frame, iteration);
+    path_trace(pbo_dptr, frame, iteration);
 
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

@@ -11,8 +11,9 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3
   float over = sqrt(1 - up * up);  // sin(theta)
   float around = u01(rng) * TWO_PI;
 
-  // Find a direction that is not the normal based off of whether or not the normal's components are all equal to
-  // sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
+  // Find a direction that is not the normal based off of whether or not the normal's components are
+  // all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned
+  // this trick from Peter Kutz.
   glm::vec3 direction_not_normal;
   if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
     direction_not_normal = glm::vec3(1, 0, 0);
@@ -32,15 +33,16 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3
 __host__ __device__ void scatter_ray(PathSegment& path_segment,
                                      glm::vec3 intersection_point,
                                      glm::vec3 normal,
-                                     const Material& m,
+                                     const Material& mat,
                                      thrust::default_random_engine& rng) {
   Ray& ray = path_segment.ray;
-  glm::vec3& color = path_segment.color;
 
   // Offset a little from the intersection surface
   ray.direction = calculate_random_direction_in_hemisphere(normal, rng);
   ray.origin = intersection_point + EPSILON * ray.direction;
 
   // TODO(aczw): figure out color contribution calculation
-  color *= m.color;
+  path_segment.color *= mat.color;
+
+  path_segment.remaining_bounces -= 1;
 }
