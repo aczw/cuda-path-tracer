@@ -2,7 +2,7 @@
 #include "glm/gtx/norm.hpp"
 #include "interactions.h"
 #include "intersections.h"
-#include "pathtrace.h"
+#include "path_trace.h"
 #include "scene.h"
 #include "scene_structs.h"
 #include "utilities.h"
@@ -17,11 +17,10 @@
 #include <cstdio>
 
 #define ERRORCHECK 1
-
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define checkCUDAError(msg) checkCUDAErrorFn(msg, FILENAME, __LINE__)
+#define check_cuda_error(msg) check_cuda_error_function(msg, FILENAME, __LINE__)
 
-void checkCUDAErrorFn(const char* msg, const char* file, int line) {
+void check_cuda_error_function(const char* msg, const char* file, int line) {
 #if ERRORCHECK
   cudaDeviceSynchronize();
   cudaError_t err = cudaGetLastError();
@@ -41,13 +40,13 @@ void checkCUDAErrorFn(const char* msg, const char* file, int line) {
 #endif  // ERRORCHECK
 }
 
-__host__ __device__ thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
+__host__ __device__ thrust::default_random_engine make_seeded_random_engine(int iter, int index, int depth) {
   int h = util_hash((1 << 31) | (depth << 22) | iter) ^ util_hash(index);
   return thrust::default_random_engine(h);
 }
 
 // Kernel that writes the image to the OpenGL PBO directly.
-__global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm::vec3* image) {
+__global__ void send_image_to_pbo(uchar4* pbo, glm::ivec2 resolution, int iter, glm::vec3* image) {
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 
@@ -68,22 +67,22 @@ __global__ void sendImageToPBO(uchar4* pbo, glm::ivec2 resolution, int iter, glm
   }
 }
 
-static Scene* hst_scene = NULL;
-static GuiDataContainer* guiData = NULL;
-static glm::vec3* dev_image = NULL;
-static Geometry* dev_geoms = NULL;
-static Material* dev_materials = NULL;
-static PathSegment* dev_paths = NULL;
-static ShadeableIntersection* dev_intersections = NULL;
+static Scene* hst_scene = nullptr;
+static GuiDataContainer* gui_data = nullptr;
+static glm::vec3* dev_image = nullptr;
+static Geometry* dev_geoms = nullptr;
+static Material* dev_materials = nullptr;
+static PathSegment* dev_paths = nullptr;
+static ShadeableIntersection* dev_intersections = nullptr;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
 
-void InitDataContainer(GuiDataContainer* imGuiData) {
-  guiData = imGuiData;
+void init_data_container(GuiDataContainer* imgui_data) {
+  gui_data = imgui_data;
 }
 
-void pathtraceInit(Scene* scene) {
+void path_trace_init(Scene* scene) {
   hst_scene = scene;
 
   const Camera& cam = hst_scene->state.camera;
@@ -106,10 +105,10 @@ void pathtraceInit(Scene* scene) {
 
   // TODO: initialize any extra device memeory you need
 
-  checkCUDAError("pathtraceInit");
+  check_cuda_error("path_trace_init");
 }
 
-void pathtraceFree() {
+void path_trace_free() {
   cudaFree(dev_image);  // no-op if dev_image is null
   cudaFree(dev_paths);
   cudaFree(dev_geoms);
@@ -117,7 +116,7 @@ void pathtraceFree() {
   cudaFree(dev_intersections);
   // TODO: clean up any extra device memory you created
 
-  checkCUDAError("pathtraceFree");
+  check_cuda_error("path_trace_free");
 }
 
 /**
@@ -228,8 +227,8 @@ __global__ void shadeFakeMaterial(int iter,
     {
       // Set up the RNG
       // LOOK: this is how you use thrust's RNG! Please look at
-      // makeSeededRandomEngine as well.
-      thrust::default_random_engine rng = makeSeededRandomEngine(iter, idx, 0);
+      // make_seeded_random_engine as well.
+      thrust::default_random_engine rng = make_seeded_random_engine(iter, idx, 0);
       thrust::uniform_real_distribution<float> u01(0, 1);
 
       Material material = materials[intersection.materialId];
@@ -317,7 +316,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
   // TODO: perform one iteration of path tracing
 
   generateRayFromCamera<<<blocksPerGrid2d, blockSize2d>>>(cam, iter, traceDepth, dev_paths);
-  checkCUDAError("generate camera ray");
+  check_cuda_error("generate camera ray");
 
   int depth = 0;
   PathSegment* dev_path_end = dev_paths + pixelcount;
@@ -335,7 +334,7 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
     dim3 numblocksPathSegmentTracing = (num_paths + blockSize1d - 1) / blockSize1d;
     computeIntersections<<<numblocksPathSegmentTracing, blockSize1d>>>(depth, num_paths, dev_paths, dev_geoms,
                                                                        hst_scene->geoms.size(), dev_intersections);
-    checkCUDAError("trace one bounce");
+    check_cuda_error("trace one bounce");
     cudaDeviceSynchronize();
     depth++;
 
@@ -352,8 +351,8 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
                                                                     dev_materials);
     iterationComplete = true;  // TODO: should be based off stream compaction results.
 
-    if (guiData != NULL) {
-      guiData->TracedDepth = depth;
+    if (gui_data != NULL) {
+      gui_data->TracedDepth = depth;
     }
   }
 
@@ -364,10 +363,10 @@ void pathtrace(uchar4* pbo, int frame, int iter) {
   ///////////////////////////////////////////////////////////////////////////
 
   // Send results to OpenGL buffer for rendering
-  sendImageToPBO<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
+  send_image_to_pbo<<<blocksPerGrid2d, blockSize2d>>>(pbo, cam.resolution, iter, dev_image);
 
   // Retrieve image from GPU
   cudaMemcpy(hst_scene->state.image.data(), dev_image, pixelcount * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
-  checkCUDAError("pathtrace");
+  check_cuda_error("pathtrace");
 }

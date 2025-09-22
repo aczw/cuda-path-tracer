@@ -3,7 +3,7 @@
 #include "ImGui/imgui_impl_opengl3.h"
 #include "glslUtility.hpp"
 #include "image.h"
-#include "pathtrace.h"
+#include "path_trace.h"
 #include "scene.h"
 #include "scene_structs.h"
 #include "utilities.h"
@@ -40,7 +40,7 @@ glm::vec3 cameraPosition;
 glm::vec3 ogLookAt;  // for recentering the camera
 
 Scene* scene;
-GuiDataContainer* guiData;
+GuiDataContainer* gui_data;
 RenderState* renderState;
 int iteration;
 
@@ -222,8 +222,8 @@ bool init() {
   return true;
 }
 
-void InitImguiData(GuiDataContainer* guiData) {
-  imguiData = guiData;
+void InitImguiData(GuiDataContainer* gui_data) {
+  imguiData = gui_data;
 }
 
 // LOOK: Un-Comment to check ImGui Usage
@@ -319,7 +319,7 @@ int main(int argc, char** argv) {
   scene = new Scene(sceneFile);
 
   // Create Instance for ImGUIData
-  guiData = new GuiDataContainer();
+  gui_data = new GuiDataContainer();
 
   // Set up camera stuff from loaded path tracer settings
   iteration = 0;
@@ -348,8 +348,8 @@ int main(int argc, char** argv) {
   init();
 
   // Initialize ImGui Data
-  InitImguiData(guiData);
-  InitDataContainer(guiData);
+  InitImguiData(gui_data);
+  init_data_container(gui_data);
 
   // GLFW main loop
   mainLoop();
@@ -405,8 +405,8 @@ void runCuda() {
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
 
   if (iteration == 0) {
-    pathtraceFree();
-    pathtraceInit(scene);
+    path_trace_free();
+    path_trace_init(scene);
   }
 
   if (iteration < renderState->iterations) {
@@ -422,7 +422,7 @@ void runCuda() {
     cudaGLUnmapBufferObject(pbo);
   } else {
     saveImage();
-    pathtraceFree();
+    path_trace_free();
     cudaDeviceReset();
     exit(EXIT_SUCCESS);
   }
