@@ -45,7 +45,7 @@ __host__ __device__ void scatter_ray(PathSegment& path_segment,
   ray.origin = intersection_point + EPSILON * ray.direction;
 
   // TODO(aczw): figure out color contribution calculation
-  path_segment.color *= mat.color;
+  path_segment.throughput *= mat.color;
 
   path_segment.remaining_bounces -= 1;
 }

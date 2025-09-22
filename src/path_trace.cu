@@ -144,7 +144,8 @@ __global__ void generate_ray_from_camera(Camera cam,
     PathSegment& segment = path_segments[index];
 
     segment.ray.origin = cam.position;
-    segment.color = glm::vec3(1.0f, 1.0f, 1.0f);
+    segment.radiance = glm::vec3();
+    segment.throughput = glm::vec3(1.0f);
 
     // TODO: implement antialiasing by jittering the ray
     segment.ray.direction = glm::normalize(
@@ -250,7 +251,7 @@ __global__ void shade_fake_material(int curr_iteration,
   // where A = alpha, often used for opacity, in which case they can indicate no opacity. This can
   // be useful for post-processing and image compositing.
   if (!data_opt) {
-    path_segments[index].color = glm::vec3();
+    path_segments[index].throughput = glm::vec3();
     return;
   }
 
@@ -266,15 +267,15 @@ __global__ void shade_fake_material(int curr_iteration,
 
   // If the material indicates that the object was a light, "light" the ray
   if (material.emittance > 0.f) {
-    path_segments[index].color *= material_color * material.emittance;
+    path_segments[index].throughput *= material_color * material.emittance;
   } else {
     // Otherwise, do some pseudo-lighting computation. This is actually more
     // like what you would expect from shading in a rasterizer like OpenGL.
     // TODO: replace this! you should be able to start with basically a one-liner
     float lightTerm = glm::dot(data.surface_normal, glm::vec3(0.0f, 1.0f, 0.0f));
-    path_segments[index].color *=
+    path_segments[index].throughput *=
         (material_color * lightTerm) * 0.3f + ((1.0f - data.t * 0.02f) * material_color) * 0.7f;
-    path_segments[index].color *= u01(rng);  // apply some noise because why not
+    path_segments[index].throughput *= u01(rng);  // apply some noise because why not
   }
 }
 
@@ -296,7 +297,7 @@ __global__ void shade_material(int curr_iteration,
   // where A = alpha, often used for opacity, in which case they can indicate no opacity. This can
   // be useful for post-processing and image compositing.
   if (!data_opt) {
-    path_segments[index].color = glm::vec3();
+    path_segments[index].throughput = glm::vec3();
     return;
   }
 
@@ -312,15 +313,15 @@ __global__ void shade_material(int curr_iteration,
 
   // If the material indicates that the object was a light, "light" the ray
   if (material.emittance > 0.f) {
-    path_segments[index].color *= material_color * material.emittance;
+    path_segments[index].throughput *= material_color * material.emittance;
   } else {
     // Otherwise, do some pseudo-lighting computation. This is actually more
     // like what you would expect from shading in a rasterizer like OpenGL.
     // TODO: replace this! you should be able to start with basically a one-liner
     float lightTerm = glm::dot(data.surface_normal, glm::vec3(1.0f, 0.0f, 0.0f));
-    path_segments[index].color *=
+    path_segments[index].throughput *=
         (material_color * lightTerm) * 0.3f + ((1.0f - data.t * 0.02f) * material_color) * 0.7f;
-    path_segments[index].color *= u01(rng);  // apply some noise because why not
+    path_segments[index].throughput *= u01(rng);  // apply some noise because why not
   }
 }
 
@@ -330,7 +331,7 @@ __global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iteration
 
   if (index < nPaths) {
     PathSegment iterationPath = iterationPaths[index];
-    image[iterationPath.pixel_index] += iterationPath.color;
+    image[iterationPath.pixel_index] += iterationPath.throughput;
   }
 }
 
