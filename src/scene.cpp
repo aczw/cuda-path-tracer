@@ -3,13 +3,12 @@
 #include "json.hpp"
 #include "utilities.cuh"
 
-#include <cuda/std/numbers>
-
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <fstream>
 #include <iostream>
+#include <numbers>
 #include <string>
 #include <unordered_map>
 
@@ -70,7 +69,7 @@ void Scene::loadFromJSON(const std::string& jsonName) {
     newGeom.rotation = glm::vec3(rotat[0], rotat[1], rotat[2]);
     newGeom.scale = glm::vec3(scale[0], scale[1], scale[2]);
 
-    glm::vec3 rotation_rad = newGeom.rotation * (cuda::std::numbers::pi_v<float> / 180.f);
+    glm::vec3 rotation_rad = newGeom.rotation * (std::numbers::pi_v<float> / 180.f);
 
     glm::mat4 transform = glm::translate(glm::mat4(), newGeom.translation);
     transform = glm::rotate(transform, rotation_rad.x, glm::vec3(1.f, 0.f, 0.f));
@@ -101,9 +100,9 @@ void Scene::loadFromJSON(const std::string& jsonName) {
   camera.up = glm::vec3(up[0], up[1], up[2]);
 
   // calculate fov based on resolution
-  float yscaled = tan(fovy * (cuda::std::numbers::pi / 180));
+  float yscaled = tan(fovy * (std::numbers::pi / 180));
   float xscaled = (yscaled * camera.resolution.x) / camera.resolution.y;
-  float fovx = (atan(xscaled) * 180) / cuda::std::numbers::pi;
+  float fovx = (atan(xscaled) * 180) / std::numbers::pi;
   camera.fov = glm::vec2(fovx, fovy);
 
   camera.right = glm::normalize(glm::cross(camera.view, camera.up));

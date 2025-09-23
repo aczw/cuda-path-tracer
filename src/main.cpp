@@ -8,7 +8,6 @@
 #include "scene_structs.h"
 #include "utilities.cuh"
 
-#include <cuda/std/numbers>
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
 
@@ -24,6 +23,7 @@
 #include <format>
 #include <fstream>
 #include <iostream>
+#include <numbers>
 #include <sstream>
 #include <string>
 
@@ -415,7 +415,7 @@ void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
     // compute new camera parameters
     phi -= (xpos - lastX) / width;
     theta -= (ypos - lastY) / height;
-    theta = std::fmax(0.001f, std::fmin(theta, cuda::std::numbers::pi));
+    theta = std::fmax(0.001f, std::fmin(theta, std::numbers::pi));
     camera_changed = true;
   } else if (rightMousePressed) {
     zoom += (ypos - lastY) / height;

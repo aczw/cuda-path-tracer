@@ -1,8 +1,9 @@
 #include "interactions.h"
 #include "utilities.cuh"
 
-#include <cuda/std/numbers>
 #include <thrust/random.h>
+
+#include <numbers>
 
 #define SQRT_ONE_THIRD 0.5773502691896257645091487805019574556476f
 
@@ -13,7 +14,7 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
 
   float up = sqrt(u01(rng));       // cos(theta)
   float over = sqrt(1 - up * up);  // sin(theta)
-  float around = u01(rng) * 2.f * cuda::std::numbers::pi;
+  float around = u01(rng) * 2.f * std::numbers::pi;
 
   // Find a direction that is not the normal based off of whether or not the normal's components are
   // all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned
