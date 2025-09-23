@@ -21,6 +21,7 @@
 #include <charconv>
 #include <cstdlib>
 #include <cstring>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -277,10 +278,7 @@ void run_main_loop() {
 
     run_cuda();
 
-    std::to_chars(iter_str.data(), iter_str.data() + iter_str.size(), curr_iteration);
-    std::string title =
-        std::string("CIS 5650 CUDA Path Tracer | ") + iter_str.data() + " Iterations";
-
+    std::string title = std::format("CIS 5650 CUDA Path Tracer | {} iterations", curr_iteration);
     glfwSetWindowTitle(window, title.c_str());
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
