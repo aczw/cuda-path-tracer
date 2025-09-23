@@ -1,6 +1,6 @@
 #include "interactions.h"
 #include "intersections.h"
-#include "path_trace.h"
+#include "path_tracer.h"
 #include "scene.h"
 #include "scene_structs.h"
 #include "utilities.h"
@@ -86,42 +86,6 @@ static cuda::std::optional<ShadingData>* dev_shading_data = nullptr;
 
 void init_data_container(GuiDataContainer* imgui_data) {
   gui_data = imgui_data;
-}
-
-void path_trace_init(Scene* scene) {
-  hst_scene = scene;
-
-  const Camera& cam = hst_scene->state.camera;
-  const int pixel_count = cam.resolution.x * cam.resolution.y;
-
-  cudaMalloc(&dev_image, pixel_count * sizeof(glm::vec3));
-  cudaMemset(dev_image, 0, pixel_count * sizeof(glm::vec3));
-
-  cudaMalloc(&dev_path_segments, pixel_count * sizeof(PathSegment));
-
-  cudaMalloc(&dev_geometry, scene->geoms.size() * sizeof(Geometry));
-  cudaMemcpy(dev_geometry, scene->geoms.data(), scene->geoms.size() * sizeof(Geometry),
-             cudaMemcpyHostToDevice);
-
-  cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
-  cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material),
-             cudaMemcpyHostToDevice);
-
-  cudaMalloc(&dev_shading_data, pixel_count * sizeof(cuda::std::optional<ShadingData>));
-  cudaMemset(dev_shading_data, 0, pixel_count * sizeof(cuda::std::optional<ShadingData>));
-
-  check_cuda_error("path_trace_init");
-}
-
-void path_trace_free() {
-  // No-op if dev_image is null
-  cudaFree(dev_image);
-  cudaFree(dev_path_segments);
-  cudaFree(dev_geometry);
-  cudaFree(dev_materials);
-  cudaFree(dev_shading_data);
-
-  check_cuda_error("path_trace_free");
 }
 
 /**
@@ -352,11 +316,45 @@ __global__ void final_gather(int num_paths, glm::vec3* image, PathSegment* path_
   image[segment.pixel_index] += segment.radiance;
 }
 
-/**
- * Wrapper for the `__global__` call that sets up the kernel calls and does a ton of memory
- * management
- */
-void path_trace(uchar4* pbo, int frame, int current_iteration) {
+namespace path_tracer {
+
+void initialize(Scene* scene) {
+  hst_scene = scene;
+
+  const Camera& cam = hst_scene->state.camera;
+  const int pixel_count = cam.resolution.x * cam.resolution.y;
+
+  cudaMalloc(&dev_image, pixel_count * sizeof(glm::vec3));
+  cudaMemset(dev_image, 0, pixel_count * sizeof(glm::vec3));
+
+  cudaMalloc(&dev_path_segments, pixel_count * sizeof(PathSegment));
+
+  cudaMalloc(&dev_geometry, scene->geoms.size() * sizeof(Geometry));
+  cudaMemcpy(dev_geometry, scene->geoms.data(), scene->geoms.size() * sizeof(Geometry),
+             cudaMemcpyHostToDevice);
+
+  cudaMalloc(&dev_materials, scene->materials.size() * sizeof(Material));
+  cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material),
+             cudaMemcpyHostToDevice);
+
+  cudaMalloc(&dev_shading_data, pixel_count * sizeof(cuda::std::optional<ShadingData>));
+  cudaMemset(dev_shading_data, 0, pixel_count * sizeof(cuda::std::optional<ShadingData>));
+
+  check_cuda_error("path_trace_init");
+}
+
+void free() {
+  // No-op if dev_image is null
+  cudaFree(dev_image);
+  cudaFree(dev_path_segments);
+  cudaFree(dev_geometry);
+  cudaFree(dev_materials);
+  cudaFree(dev_shading_data);
+
+  check_cuda_error("path_trace_free");
+}
+
+void run(uchar4* pbo, int curr_iteration) {
   const int trace_depth = hst_scene->state.trace_depth;
   const Camera& camera = hst_scene->state.camera;
   const int num_pixels = camera.resolution.x * camera.resolution.y;
@@ -381,7 +379,7 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
   //   for you.
 
   // Initialize `dev_path_segments` by using rays that come out of the camera.
-  generate_ray_from_camera<<<blocks_per_grid_2d, block_size_2d>>>(camera, current_iteration,
+  generate_ray_from_camera<<<blocks_per_grid_2d, block_size_2d>>>(camera, curr_iteration,
                                                                   trace_depth, dev_path_segments);
   check_cuda_error("generate_ray_from_camera");
 
@@ -421,8 +419,7 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
     // TODO: compare between directly shading the path segments and shading
     // path segments that have been reshuffled to be contiguous in memory.
     shade_material<<<num_blocks_path_segment_tracing, block_size_1d>>>(
-        current_iteration, num_paths, curr_depth, dev_shading_data, dev_path_segments,
-        dev_materials);
+        curr_iteration, num_paths, curr_depth, dev_shading_data, dev_path_segments, dev_materials);
 
     // TODO(aczw): should be based off of stream compaction results (i.e. all paths
     // have been stream compacted away)
@@ -442,8 +439,8 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
   ///////////////////////////////////////////////////////////////////////////
 
   // Send results to OpenGL buffer for rendering
-  send_image_to_pbo<<<blocks_per_grid_2d, block_size_2d>>>(pbo, camera.resolution,
-                                                           current_iteration, dev_image);
+  send_image_to_pbo<<<blocks_per_grid_2d, block_size_2d>>>(pbo, camera.resolution, curr_iteration,
+                                                           dev_image);
 
   // Retrieve image from GPU
   cudaMemcpy(hst_scene->state.image.data(), dev_image, num_pixels * sizeof(glm::vec3),
@@ -451,3 +448,5 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
 
   check_cuda_error("path_trace");
 }
+
+}  // namespace path_tracer
