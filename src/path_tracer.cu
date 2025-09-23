@@ -7,6 +7,7 @@
 
 #include <cuda.h>
 #include <cuda/std/limits>
+#include <cuda/std/numbers>
 #include <cuda/std/optional>
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
@@ -271,15 +272,13 @@ __global__ void shade_material(int curr_iteration,
   } else {
     glm::vec3 omega_o = -path_segments[index].ray.direction;
 
-    // Calculate simple diffuse lighting
-    glm::vec3 bsdf = material_color * INV_PI;
+    // Calculate simple Lambertian lighting
+    glm::vec3 bsdf = material_color * static_cast<float>(cuda::std::numbers::inv_pi);
 
     // Cosine-weighted hemisphere sampling
-    // abs(cosThteta) / PI
-
     float pdf = glm::abs(glm::dot(data.surface_normal, omega_o) /
                          (glm::length(data.surface_normal) * glm::length(omega_o))) /
-                PI;
+                cuda::std::numbers::pi;
 
     float lambert = glm::abs(glm::dot(data.surface_normal, omega_o));
 

@@ -1,7 +1,10 @@
 #include "interactions.h"
 #include "utilities.cuh"
 
+#include <cuda/std/numbers>
 #include <thrust/random.h>
+
+#define SQRT_ONE_THIRD 0.5773502691896257645091487805019574556476f
 
 __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
     glm::vec3 normal,
@@ -10,15 +13,15 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
 
   float up = sqrt(u01(rng));       // cos(theta)
   float over = sqrt(1 - up * up);  // sin(theta)
-  float around = u01(rng) * TWO_PI;
+  float around = u01(rng) * 2.f * cuda::std::numbers::pi;
 
   // Find a direction that is not the normal based off of whether or not the normal's components are
   // all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned
   // this trick from Peter Kutz.
   glm::vec3 direction_not_normal;
-  if (abs(normal.x) < SQRT_OF_ONE_THIRD) {
+  if (abs(normal.x) < SQRT_ONE_THIRD) {
     direction_not_normal = glm::vec3(1, 0, 0);
-  } else if (abs(normal.y) < SQRT_OF_ONE_THIRD) {
+  } else if (abs(normal.y) < SQRT_ONE_THIRD) {
     direction_not_normal = glm::vec3(0, 1, 0);
   } else {
     direction_not_normal = glm::vec3(0, 0, 1);
