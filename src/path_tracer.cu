@@ -3,7 +3,7 @@
 #include "path_tracer.h"
 #include "scene.h"
 #include "scene_structs.h"
-#include "utilities.h"
+#include "utilities.cuh"
 
 #include <cuda.h>
 #include <cuda/std/limits>
@@ -40,13 +40,6 @@ void check_cuda_error_function(const char* msg, const char* file, int line) {
 #endif  // _WIN32
   exit(EXIT_FAILURE);
 #endif  // ERRORCHECK
-}
-
-__host__ __device__ thrust::default_random_engine make_seeded_random_engine(int iter,
-                                                                            int index,
-                                                                            int depth) {
-  int h = util_hash((1 << 31) | (depth << 22) | iter) ^ util_hash(index);
-  return thrust::default_random_engine(h);
 }
 
 // Kernel that writes the image to the OpenGL PBO directly.
@@ -258,8 +251,6 @@ __global__ void shade_material(int curr_iteration,
   cuda::std::optional<ShadingData> data_opt = shading_data[index];
 
   if (!data_opt) {
-    // TODO(aczw): don't need this I think
-    // path_segments[index].radiance = glm::vec3();
     return;
   }
 
@@ -312,7 +303,7 @@ __global__ void final_gather(int num_paths, glm::vec3* image, PathSegment* path_
     return;
   }
 
-  PathSegment segment = path_segments[index];
+  const PathSegment& segment = path_segments[index];
   image[segment.pixel_index] += segment.radiance;
 }
 

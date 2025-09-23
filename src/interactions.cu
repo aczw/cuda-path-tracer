@@ -1,5 +1,5 @@
 #include "interactions.h"
-#include "utilities.h"
+#include "utilities.cuh"
 
 #include <thrust/random.h>
 

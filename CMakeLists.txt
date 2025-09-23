@@ -9,26 +9,25 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# Enable C++17 for host code
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
     # Set the possible values of build type for cmake-gui
-    SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 find_package(OpenGL REQUIRED)
+include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 
 if(UNIX)
-    include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
     find_package(glfw3 REQUIRED)
     find_package(GLEW REQUIRED)
     set(GL_LIBRARIES glfw ${GLEW_LIBRARIES} ${OPENGL_LIBRARIES})
-else(UNIX)
+else()
     set(EXTERNAL "${CMAKE_SOURCE_DIR}/external")
 
     set(GLFW_ROOT_DIR ${EXTERNAL})
@@ -42,7 +41,7 @@ else(UNIX)
     add_definitions(${GLEW_DEFINITIONS})
     include_directories(${GLEW_INCLUDE_DIR} ${GLFW_INCLUDE_DIR})
     set(GL_LIBRARIES ${GLEW_LIBRARY} ${GLFW_LIBRARY} ${OPENGL_LIBRARY})
-endif(UNIX)
+endif()
 
 set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
 find_package(GLM REQUIRED)
@@ -56,7 +55,7 @@ set(headers
     src/path_tracer.h
     src/scene.h
     src/scene_structs.h
-    src/utilities.h
+    src/utilities.cuh
 )
 
 set(sources
@@ -68,7 +67,7 @@ set(sources
     src/intersections.cu
     src/interactions.cu
     src/scene.cpp
-    src/utilities.cpp
+    src/utilities.cu
 )
 
 set(imgui_headers
@@ -118,4 +117,3 @@ target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE "$<$<AND:$<CONFIG:Debug,Rel
 target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE "$<$<AND:$<CONFIG:Release>,$<COMPILE_LANGUAGE:CUDA>>:-lineinfo;-src-in-ptx>")
 
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})
-

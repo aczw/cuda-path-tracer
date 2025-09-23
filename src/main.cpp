@@ -6,7 +6,7 @@
 #include "path_tracer.h"
 #include "scene.h"
 #include "scene_structs.h"
-#include "utilities.h"
+#include "utilities.cuh"
 
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
@@ -16,6 +16,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
+#include <array>
+#include <charconv>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -267,13 +269,17 @@ bool MouseOverImGuiWindow() {
 }
 
 void run_main_loop() {
+  std::array<char, 10> iter_str;
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
     run_cuda();
 
+    std::to_chars(iter_str.data(), iter_str.data() + iter_str.size(), curr_iteration);
     std::string title =
-        "CIS565 Path Tracer | " + utilityCore::convertIntToString(curr_iteration) + " Iterations";
+        std::string("CIS 5650 CUDA Path Tracer | ") + iter_str.data() + " Iterations";
+
     glfwSetWindowTitle(window, title.c_str());
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "scene.h"
-#include "utilities.h"
+#include "utilities.cuh"
 
 void init_data_container(GuiDataContainer* gui_data);
 
