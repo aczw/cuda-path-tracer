@@ -293,11 +293,9 @@ __global__ void shade_material(int curr_iteration,
 
   cuda::std::optional<ShadingData> data_opt = shading_data[index];
 
-  // If there was no intersection, color the ray black. Lots of renderers use 4 channel color, RGBA,
-  // where A = alpha, often used for opacity, in which case they can indicate no opacity. This can
-  // be useful for post-processing and image compositing.
   if (!data_opt) {
-    path_segments[index].throughput = glm::vec3();
+    // TODO(aczw): don't need this I think
+    // path_segments[index].radiance = glm::vec3();
     return;
   }
 
@@ -305,34 +303,53 @@ __global__ void shade_material(int curr_iteration,
 
   // Set up the RNG. LOOK: this is how you use thrust's RNG! Please look at
   // make_seeded_random_engine as well.
-  thrust::default_random_engine rng = make_seeded_random_engine(curr_iteration, index, 0);
+  thrust::default_random_engine rng = make_seeded_random_engine(curr_iteration, index, curr_depth);
   thrust::uniform_real_distribution<float> u01(0, 1);
 
   Material material = materials[data.material_id];
   glm::vec3 material_color = material.color;
 
-  // If the material indicates that the object was a light, "light" the ray
   if (material.emittance > 0.f) {
-    path_segments[index].throughput *= material_color * material.emittance;
+    // If the material indicates that the object was a light, "light" the ray. This also indicates
+    // that this path is complete
+    path_segments[index].radiance = material.emittance * path_segments[index].throughput;
   } else {
-    // Otherwise, do some pseudo-lighting computation. This is actually more
-    // like what you would expect from shading in a rasterizer like OpenGL.
-    // TODO: replace this! you should be able to start with basically a one-liner
-    float lightTerm = glm::dot(data.surface_normal, glm::vec3(1.0f, 0.0f, 0.0f));
-    path_segments[index].throughput *=
-        (material_color * lightTerm) * 0.3f + ((1.0f - data.t * 0.02f) * material_color) * 0.7f;
-    path_segments[index].throughput *= u01(rng);  // apply some noise because why not
+    glm::vec3 omega_o = -path_segments[index].ray.direction;
+
+    // Calculate simple diffuse lighting
+    glm::vec3 bsdf = material_color * INV_PI;
+
+    // Cosine-weighted hemisphere sampling
+    // abs(cosThteta) / PI
+
+    float pdf = glm::abs(glm::dot(data.surface_normal, omega_o) /
+                         (glm::length(data.surface_normal) * glm::length(omega_o))) /
+                PI;
+
+    float lambert = glm::abs(glm::dot(data.surface_normal, omega_o));
+
+    path_segments[index].throughput *= bsdf * lambert / pdf;
   }
+
+  Ray original_ray = path_segments[index].ray;
+
+  // Determine next ray
+  glm::vec3 new_direction = calculate_random_direction_in_hemisphere(data.surface_normal, rng);
+  path_segments[index].ray.origin =
+      original_ray.origin + (data.t * original_ray.direction) + (EPSILON * data.surface_normal);
+  path_segments[index].ray.direction = new_direction;
 }
 
 // Add the current iteration's output to the overall image
-__global__ void finalGather(int nPaths, glm::vec3* image, PathSegment* iterationPaths) {
+__global__ void final_gather(int num_paths, glm::vec3* image, PathSegment* path_segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-  if (index < nPaths) {
-    PathSegment iterationPath = iterationPaths[index];
-    image[iterationPath.pixel_index] += iterationPath.throughput;
+  if (index >= num_paths) {
+    return;
   }
+
+  PathSegment segment = path_segments[index];
+  image[segment.pixel_index] += segment.radiance;
 }
 
 /**
@@ -409,7 +426,9 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
 
     // TODO(aczw): should be based off of stream compaction results (i.e. all paths
     // have been stream compacted away)
-    iteration_done = true;
+    if (curr_depth > 7) {
+      iteration_done = true;
+    }
 
     if (gui_data) {
       gui_data->traced_depth = curr_depth;
@@ -417,8 +436,8 @@ void path_trace(uchar4* pbo, int frame, int current_iteration) {
   }
 
   // Assemble this iteration and apply it to the image
-  dim3 numBlocksPixels = (num_pixels + block_size_1d - 1) / block_size_1d;
-  finalGather<<<numBlocksPixels, block_size_1d>>>(num_paths, dev_image, dev_path_segments);
+  dim3 num_blocks_pixels = (num_pixels + block_size_1d - 1) / block_size_1d;
+  final_gather<<<num_blocks_pixels, block_size_1d>>>(num_paths, dev_image, dev_path_segments);
 
   ///////////////////////////////////////////////////////////////////////////
 

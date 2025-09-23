@@ -24,7 +24,7 @@ The core renderer is left for you to implement. Finally, note that, while this b
 
 * `src/` C++/CUDA source files.
 * `scenes/` Example scene description JSON files.
-* `img/` Renders of example scene description files. (These probably won't match precisely with yours.)
+* `renders/` Renders of example scene description files. (These probably won't match precisely with yours.)
 * `external/` Includes and static libraries for 3rd party libraries.
 
 ## Running the code
@@ -62,7 +62,7 @@ You will need to implement the following features:
 
 * A shading kernel with BSDF evaluation for:
   * Ideal diffuse surfaces (using provided cosine-weighted scatter function, see below.) [PBRTv4 9.2](https://pbr-book.org/4ed/Reflection_Models/Diffuse_Reflection)
-* After you have a [basic pathtracer up and running](img/REFERENCE_cornell.5000samp.png),
+* After you have a [basic pathtracer up and running](renders/REFERENCE_cornell.5000samp.png),
   implement a means of making rays/pathSegments/intersections contiguous in memory by material type. This should be easily toggleable.
   * Consider the problems with coloring every path segment in a buffer and performing BSDF evaluation using one big shading kernel: different materials/BSDF evaluations within the kernel will take different amounts of time to complete.
   * Sort the rays/path segments so that rays/paths interacting with the same material are contiguous in memory before shading. How does this impact performance? Why?
@@ -334,9 +334,7 @@ In addition:
 
 * Stream compaction helps most after a few bounces. Print and plot the effects of stream compaction within a single iteration (i.e. the number of unterminated rays after each bounce) and evaluate the benefits you get from stream compaction.
 * Compare scenes which are open (like the given cornell box) and closed (i.e. no light can escape the scene). Again, compare the performance effects of stream compaction! Remember, stream compaction only affects rays which terminate, so what might you expect?
-* For optimizations that target specific kernels, we recommend using stacked bar graphs to convey total execution time and improvements in individual kernels. For example:
-
-  ![Clearly the Macchiato is optimal.](img/stacked_bar_graph.png)
+* For optimizations that target specific kernels, we recommend using stacked bar graphs to convey total execution time and improvements in individual kernels.
 
   Timings from NSight should be very useful for generating these kinds of charts.
 
