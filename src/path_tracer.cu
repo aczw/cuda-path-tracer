@@ -28,13 +28,14 @@
 
 void check_cuda_error_function(const char* msg, const char* file, int line) {
 #if ERRORCHECK
-  cudaDeviceSynchronize();
-  cudaError_t err = cudaGetLastError();
+  cudaError_t err = cudaDeviceSynchronize();
+
   if (cudaSuccess == err) {
     return;
   }
 
   fprintf(stderr, "CUDA error");
+
   if (file) {
     fprintf(stderr, " (%s:%d)", file, line);
   }
@@ -320,6 +321,12 @@ struct IsNotOutOfBounds {
   }
 };
 
+struct IsNotLightIsect {
+  __host__ __device__ bool operator()(Intersection isect, PathSegment) {
+    return !cuda::std::holds_alternative<HitLight>(isect);
+  }
+};
+
 void PathTracer::initialize(Scene* scene) {
   hst_scene = scene;
 
@@ -366,13 +373,15 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const int block_size_128 = 128;
   const int num_blocks_128 = divide_ceil(num_pixels, block_size_128);
 
+  const int max_depth = 15;
+
   const thrust::device_ptr<PathSegment> thrust_segments(dev_segments);
   const thrust::device_ptr<Intersection> thrust_intersections(dev_intersections);
-
-  const thrust::zip_function zip_not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
-
   const thrust::zip_iterator zip_begin =
       thrust::make_zip_iterator(thrust_intersections, thrust_segments);
+
+  const thrust::zip_function zip_not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
+  const thrust::zip_function zip_not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
 
   // Initialize first batch of path segments
   kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(num_pixels, camera, curr_iter,
@@ -392,9 +401,9 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
     // Discard out of bounds intersections. While the goal is to remove "complete" paths,
     // we don't discard intersections with lights yet because it's required below
-    thrust::zip_iterator oob_begin =
+    const thrust::zip_iterator zip_oob_begin =
         thrust::partition(zip_begin, zip_begin + num_paths, zip_not_oob);
-    num_paths = thrust::distance(zip_begin, oob_begin);
+    num_paths = thrust::distance(zip_begin, zip_oob_begin);
 
     // TODO(aczw): sort intersections by material_id, make it toggleable via UI
 
@@ -404,13 +413,15 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     check_cuda_error("kern_sample");
 
     // TODO(aczw): stream compact away all of the following:
-    // - intersection with lights (do this first)
     // - russian roulette
     // - too many bounces within glass
+    const thrust::zip_iterator zip_light_begin =
+        thrust::partition(zip_begin, zip_oob_begin, zip_not_light_isect);
+    num_paths = thrust::distance(zip_begin, zip_light_begin);
 
     // TODO(aczw): should be based off of stream compaction results (i.e. all
     // paths have been stream compacted away)
-    if (curr_depth > 7) {
+    if (curr_depth == max_depth) {
       break;
     }
 
