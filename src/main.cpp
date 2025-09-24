@@ -63,7 +63,6 @@ ImGuiIO* io = nullptr;
 bool mouseOverImGuiWinow = false;
 
 // Forward declarations for window loop and interactivity
-void run_cuda();
 void keyCallback(GLFWwindow* window,
                  int key,
                  int scancode,
@@ -277,13 +276,83 @@ bool MouseOverImGuiWindow() {
   return mouseOverImGuiWinow;
 }
 
+void saveImage() {
+  float samples = curr_iteration;
+  // output image file
+  Image img(width, height);
+
+  for (int x = 0; x < width; x++) {
+    for (int y = 0; y < height; y++) {
+      int index = x + (y * width);
+      glm::vec3 pix = render_state->image[index];
+      img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+    }
+  }
+
+  std::string filename = render_state->image_name;
+  std::ostringstream ss;
+  ss << filename << "." << start_time << "." << samples << "samp";
+  filename = ss.str();
+
+  // CHECKITOUT
+  img.savePNG(filename);
+  // img.saveHDR(filename);  // Save a Radiance HDR file
+}
+
 void run_main_loop() {
+  Camera& camera = render_state->camera;
+
   std::array<char, 10> iter_str;
+  PathTracer path_tracer(camera.resolution);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-    run_cuda();
+    if (camera_changed) {
+      curr_iteration = 0;
+
+      camera_position.x = zoom * sin(phi) * sin(theta);
+      camera_position.y = zoom * cos(theta);
+      camera_position.z = zoom * cos(phi) * sin(theta);
+
+      camera.view = -glm::normalize(camera_position);
+      glm::vec3 v = camera.view;
+      glm::vec3 u = glm::vec3(0, 1, 0);  // glm::normalize(cam.up);
+      glm::vec3 r = glm::cross(v, u);
+      camera.up = glm::cross(r, v);
+      camera.right = r;
+
+      camera.position = camera_position;
+      camera_position += camera.look_at;
+
+      camera.position = camera_position;
+      camera_changed = false;
+    }
+
+    // Map OpenGL buffer object for writing from CUDA on a single GPU
+    // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not
+    // use this buffer
+
+    if (curr_iteration == 0) {
+      path_tracer.free();
+      path_tracer.initialize(scene);
+    }
+
+    if (curr_iteration < render_state->total_iterations) {
+      uchar4* pbo_dptr = NULL;
+      curr_iteration++;
+      cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
+
+      path_tracer.run(pbo_dptr, curr_iteration);
+
+      // unmap buffer object
+      cudaGLUnmapBufferObject(pbo);
+    } else {
+      saveImage();
+      path_tracer.free();
+      cudaDeviceReset();
+      exit(EXIT_SUCCESS);
+    }
 
     std::string title = std::format("CIS 5650 CUDA Path Tracer | {} iterations",
                                     curr_iteration);
@@ -313,77 +382,6 @@ void run_main_loop() {
 
   glfwDestroyWindow(window);
   glfwTerminate();
-}
-
-void saveImage() {
-  float samples = curr_iteration;
-  // output image file
-  Image img(width, height);
-
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      int index = x + (y * width);
-      glm::vec3 pix = render_state->image[index];
-      img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
-    }
-  }
-
-  std::string filename = render_state->image_name;
-  std::ostringstream ss;
-  ss << filename << "." << start_time << "." << samples << "samp";
-  filename = ss.str();
-
-  // CHECKITOUT
-  img.savePNG(filename);
-  // img.saveHDR(filename);  // Save a Radiance HDR file
-}
-
-void run_cuda() {
-  if (camera_changed) {
-    curr_iteration = 0;
-    Camera& camera = render_state->camera;
-    camera_position.x = zoom * sin(phi) * sin(theta);
-    camera_position.y = zoom * cos(theta);
-    camera_position.z = zoom * cos(phi) * sin(theta);
-
-    camera.view = -glm::normalize(camera_position);
-    glm::vec3 v = camera.view;
-    glm::vec3 u = glm::vec3(0, 1, 0);  // glm::normalize(cam.up);
-    glm::vec3 r = glm::cross(v, u);
-    camera.up = glm::cross(r, v);
-    camera.right = r;
-
-    camera.position = camera_position;
-    camera_position += camera.look_at;
-
-    camera.position = camera_position;
-    camera_changed = false;
-  }
-
-  // Map OpenGL buffer object for writing from CUDA on a single GPU
-  // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use
-  // this buffer
-
-  if (curr_iteration == 0) {
-    path_tracer::free();
-    path_tracer::initialize(scene);
-  }
-
-  if (curr_iteration < render_state->total_iterations) {
-    uchar4* pbo_dptr = NULL;
-    curr_iteration++;
-    cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
-
-    path_tracer::run(pbo_dptr, curr_iteration);
-
-    // unmap buffer object
-    cudaGLUnmapBufferObject(pbo);
-  } else {
-    saveImage();
-    path_tracer::free();
-    cudaDeviceReset();
-    exit(EXIT_SUCCESS);
-  }
 }
 
 void keyCallback(GLFWwindow* window,

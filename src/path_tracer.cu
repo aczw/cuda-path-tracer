@@ -342,9 +342,14 @@ __global__ void final_gather(int num_pixels,
   image[segment.pixel_index] += segment.radiance;
 }
 
-namespace path_tracer {
+PathTracer::PathTracer(glm::ivec2 resolution)
+    : config_ray_gen(resolution, 64),
+      config_isect(resolution, 128),
+      config_shade(resolution, 128),
+      config_gather(resolution, 128),
+      config_send(resolution, 64) {}
 
-void initialize(Scene* scene) {
+void PathTracer::initialize(Scene* scene) {
   hst_scene = scene;
 
   const Camera& cam = hst_scene->state.camera;
@@ -369,10 +374,10 @@ void initialize(Scene* scene) {
   cudaMemset(dev_shading_data, 0,
              pixel_count * sizeof(cuda::std::optional<ShadingData>));
 
-  check_cuda_error("path_trace_init");
+  check_cuda_error("PathTracer::initialize");
 }
 
-void free() {
+void PathTracer::free() {
   // No-op if dev_image is null
   cudaFree(dev_image);
   cudaFree(dev_path_segments);
@@ -380,19 +385,13 @@ void free() {
   cudaFree(dev_materials);
   cudaFree(dev_shading_data);
 
-  check_cuda_error("path_trace_free");
+  check_cuda_error("PathTracer::free");
 }
 
-void run(uchar4* pbo, int curr_iter) {
+void PathTracer::run(uchar4* pbo, int curr_iter) {
   const int trace_depth = hst_scene->state.trace_depth;
   const Camera& camera = hst_scene->state.camera;
   const int num_pixels = camera.resolution.x * camera.resolution.y;
-
-  KernExecConfig config_ray_gen(camera.resolution, 64);
-  KernExecConfig config_isect(camera.resolution, 128);
-  KernExecConfig config_shade(camera.resolution, 128);
-  KernExecConfig config_gather(camera.resolution, 128);
-  KernExecConfig config_send(camera.resolution, 64);
 
   // Initialize `dev_path_segments` by using rays that come out of the
   // camera.
@@ -461,7 +460,5 @@ void run(uchar4* pbo, int curr_iter) {
   cudaMemcpy(hst_scene->state.image.data(), dev_image,
              num_pixels * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
-  check_cuda_error("path_trace");
+  check_cuda_error("PathTracer::run");
 }
-
-}  // namespace path_tracer
