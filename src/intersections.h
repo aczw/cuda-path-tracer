@@ -1,19 +1,11 @@
 #pragma once
 
+#include "ray.cuh"
 #include "scene_structs.h"
 
 #include <cuda/std/optional>
 
 #include <glm/glm.hpp>
-
-// CHECKITOUT
-/**
- * Compute a point at parameter value `t` on ray `r`. Falls slightly short so
- * that it doesn't intersect the object it's hitting.
- */
-__host__ __device__ inline glm::vec3 get_point_on_ray(Ray r, float t) {
-  return r.origin + (t - .0001f) * glm::normalize(r.direction);
-}
 
 /**
  * Multiplies a mat4 and a vec4 and returns a vec3 clipped from the vec4.

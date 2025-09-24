@@ -58,6 +58,7 @@ set(headers
     src/utilities.cuh
     src/camera.hpp
     src/kern_exec_config.hpp
+    src/ray.cuh
 )
 
 set(sources

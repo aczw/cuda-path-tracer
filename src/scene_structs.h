@@ -1,6 +1,7 @@
 #pragma once
 
 #include "camera.hpp"
+#include "ray.cuh"
 
 #include <cuda_runtime.h>
 
@@ -10,11 +11,6 @@
 #include <vector>
 
 #define BACKGROUND_COLOR (glm::vec3(0.0f))
-
-struct Ray {
-  glm::vec3 origin;
-  glm::vec3 direction;
-};
 
 struct Geometry {
   enum class Type { Sphere, Cube };

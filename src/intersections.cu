@@ -44,8 +44,8 @@ __host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(
       intersection.is_outside = false;
     }
 
-    intersection.point = multiply_mat4_vec4(
-        box.transform, glm::vec4(get_point_on_ray(q, t_min), 1.0f));
+    intersection.point =
+        multiply_mat4_vec4(box.transform, glm::vec4(q.get_point(t_min), 1.0f));
     intersection.surface_normal = glm::normalize(
         multiply_mat4_vec4(box.inv_transpose, glm::vec4(t_min_n, 0.0f)));
     intersection.t = glm::length(r.origin - intersection.point);
@@ -96,7 +96,7 @@ __host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(
     isect.is_outside = false;
   }
 
-  glm::vec3 obj_space_point = get_point_on_ray(rt, t);
+  glm::vec3 obj_space_point = rt.get_point(t);
 
   isect.point =
       multiply_mat4_vec4(sphere.transform, glm::vec4(obj_space_point, 1.f));
