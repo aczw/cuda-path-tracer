@@ -46,10 +46,10 @@ void check_cuda_error_function(const char* msg, const char* file, int line) {
 }
 
 /// Kernel that writes the image to the OpenGL PBO directly.
-__global__ void send_image_to_pbo(int num_pixels,
-                                  uchar4* pbo,
-                                  int curr_iter,
-                                  glm::vec3* image) {
+__global__ void kern_send_to_pbo(int num_pixels,
+                                 uchar4* pbo,
+                                 int curr_iter,
+                                 glm::vec3* image) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -95,11 +95,11 @@ void init_data_container(GuiDataContainer* imgui_data) {
  * motion blur - jitter rays "in time"
  * lens effect - jitter ray origin positions based on a lens
  */
-__global__ void generate_ray_from_camera(int num_pixels,
-                                         Camera camera,
-                                         int curr_iter,
-                                         int trace_depth,
-                                         PathSegment* path_segments) {
+__global__ void kern_gen_rays_from_cam(int num_pixels,
+                                       Camera camera,
+                                       int curr_iter,
+                                       int trace_depth,
+                                       PathSegment* path_segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -136,7 +136,7 @@ __global__ void generate_ray_from_camera(int num_pixels,
  * Generates shading data only. Generating new rays from this data is handled in
  * the shaders.
  */
-__global__ void compute_intersections(
+__global__ void kern_find_isects(
     int depth,
     int num_paths,
     PathSegment* path_segments,
@@ -264,12 +264,12 @@ __global__ void shade_fake_material(
   }
 }
 
-__global__ void shade_material(int curr_iter,
-                               int num_pixels,
-                               int curr_depth,
-                               cuda::std::optional<ShadingData>* shading_data,
-                               PathSegment* path_segments,
-                               Material* materials) {
+__global__ void kern_sample(int curr_iter,
+                            int num_pixels,
+                            int curr_depth,
+                            cuda::std::optional<ShadingData>* shading_data,
+                            PathSegment* path_segments,
+                            Material* materials) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -327,11 +327,11 @@ __global__ void shade_material(int curr_iter,
 }
 
 /**
- * Add the current iteration's output to the overall image
+ * Add the current iteration's output to the overall image.
  */
-__global__ void final_gather(int num_pixels,
-                             glm::vec3* image,
-                             PathSegment* path_segments) {
+__global__ void kern_final_gather(int num_pixels,
+                                  glm::vec3* image,
+                                  PathSegment* path_segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -393,12 +393,15 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
   const Camera& camera = hst_scene->state.camera;
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 
-  // Initialize `dev_path_segments` by using rays that come out of the
-  // camera.
-  generate_ray_from_camera<<<config_ray_gen.get_num_blocks(),
-                             config_ray_gen.get_block_size()>>>(
+  const int block_size_64 = 64;
+  const int num_blocks_64 = divide_ceil(num_pixels, block_size_64);
+  const int block_size_128 = 128;
+  const int num_blocks_128 = divide_ceil(num_pixels, block_size_128);
+
+  // Initialize first batch of path segments
+  kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(
       num_pixels, camera, curr_iter, trace_depth, dev_path_segments);
-  check_cuda_error("generate_ray_from_camera");
+  check_cuda_error("kern_gen_rays_from_cam");
 
   int curr_depth = 0;
 
@@ -408,32 +411,27 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
     cudaMemset(dev_shading_data, 0,
                num_pixels * sizeof(cuda::std::optional<ShadingData>));
 
-    compute_intersections<<<config_isect.get_num_blocks(),
-                            config_isect.get_block_size()>>>(
+    kern_find_isects<<<config_isect.get_num_blocks(),
+                       config_isect.get_block_size()>>>(
         curr_depth, num_pixels, dev_path_segments, dev_geometry,
         hst_scene->geoms.size(), dev_shading_data);
-    check_cuda_error("compute_intersections: trace one bounce");
-    cudaDeviceSynchronize();
+    check_cuda_error("kern_find_isects");
+
     curr_depth++;
 
-    // TODO(aczw): stream compaction away dead paths here (for now, this means
-    // `shading_data` contains `cuda::std::nullopt` instead of actual data)
-    //
-    // Note that you can't really use a 2D kernel launch any more - switch to
-    // 1D.
+    // TODO(aczw): stream compact away out of bounds intersections
 
-    // TODO:
-    // --- Shading Stage ---
-    // Shade path segments based on shading_data and generate new rays by
-    // evaluating the BSDF.
-    // Start off with just a big kernel that handles all the different
-    // materials you have in the scenefile.
-    // TODO: compare between directly shading the path segments and shading
-    // path segments that have been reshuffled to be contiguous in memory.
-    shade_material<<<config_shade.get_num_blocks(),
-                     config_shade.get_block_size()>>>(
+    // TODO(aczw): sort intersections by material_id, make it toggleable via UI
+
+    kern_sample<<<config_shade.get_num_blocks(),
+                  config_shade.get_block_size()>>>(
         curr_iter, num_pixels, curr_depth, dev_shading_data, dev_path_segments,
         dev_materials);
+
+    // TODO(aczw): stream compact away all of the following:
+    // - intersection with lights (do this first)
+    // - russian roulette
+    // - too many bounces within glass
 
     // TODO(aczw): should be based off of stream compaction results (i.e. all
     // paths have been stream compacted away)
@@ -447,14 +445,12 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
   }
 
   // Assemble this iteration and apply it to the image
-  final_gather<<<config_gather.get_num_blocks(),
-                 config_gather.get_block_size()>>>(num_pixels, dev_image,
-                                                   dev_path_segments);
+  kern_final_gather<<<num_blocks_128, block_size_128>>>(num_pixels, dev_image,
+                                                        dev_path_segments);
 
   // Send results to OpenGL buffer for rendering
-  send_image_to_pbo<<<config_gather.get_num_blocks(),
-                      config_gather.get_block_size()>>>(num_pixels, pbo,
-                                                        curr_iter, dev_image);
+  kern_send_to_pbo<<<num_blocks_64, block_size_64>>>(num_pixels, pbo, curr_iter,
+                                                     dev_image);
 
   // Retrieve image from GPU
   cudaMemcpy(hst_scene->state.image.data(), dev_image,

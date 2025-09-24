@@ -30,6 +30,6 @@ __host__ __device__ inline unsigned int generate_hash(unsigned int a) {
 }
 
 /**
- * Divides `b` by `a` and rounds it up.
+ * Divides `a` by `b` and rounds it up to the nearest integer.
  */
 __host__ __device__ int divide_ceil(int a, int b);
