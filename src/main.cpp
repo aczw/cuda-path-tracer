@@ -63,11 +63,7 @@ ImGuiIO* io = nullptr;
 bool mouseOverImGuiWinow = false;
 
 // Forward declarations for window loop and interactivity
-void keyCallback(GLFWwindow* window,
-                 int key,
-                 int scancode,
-                 int action,
-                 int mods);
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void mousePositionCallback(GLFWwindow* window, double xpos, double ypos);
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
@@ -85,8 +81,7 @@ void initTextures() {
   glBindTexture(GL_TEXTURE_2D, displayImage);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
-               GL_UNSIGNED_BYTE, NULL);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void) {
@@ -112,8 +107,7 @@ void initVAO(void) {
   glEnableVertexAttribArray(texcoordsLocation);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferObjID[2]);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices,
-               GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
 GLuint initShader() {
@@ -264,8 +258,8 @@ void RenderImGui() {
   // ImGui::SameLine();
   // ImGui::Text("counter = %d", counter);
   ImGui::Text("Traced Depth %d", imguiData->traced_depth);
-  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-              1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
+              ImGui::GetIO().Framerate);
   ImGui::End();
 
   ImGui::Render();
@@ -354,14 +348,12 @@ void run_main_loop() {
       exit(EXIT_SUCCESS);
     }
 
-    std::string title = std::format("CIS 5650 CUDA Path Tracer | {} iterations",
-                                    curr_iteration);
+    std::string title = std::format("CIS 5650 CUDA Path Tracer | {} iterations", curr_iteration);
     glfwSetWindowTitle(window, title.c_str());
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBindTexture(GL_TEXTURE_2D, displayImage);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA,
-                    GL_UNSIGNED_BYTE, NULL);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // Binding GL_PIXEL_UNPACK_BUFFER back to default
@@ -384,11 +376,7 @@ void run_main_loop() {
   glfwTerminate();
 }
 
-void keyCallback(GLFWwindow* window,
-                 int key,
-                 int scancode,
-                 int action,
-                 int mods) {
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (action == GLFW_PRESS) {
     switch (key) {
       case GLFW_KEY_ESCAPE:
@@ -414,10 +402,8 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   }
 
   leftMousePressed = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
-  rightMousePressed =
-      (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
-  middleMousePressed =
-      (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
+  rightMousePressed = (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
+  middleMousePressed = (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
 }
 
 void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {

@@ -1,6 +1,6 @@
 BasedOnStyle: Chromium
 
-ColumnLimit: 80
+ColumnLimit: 100
 InsertNewlineAtEOF: true
 AllowShortIfStatementsOnASingleLine: WithoutElse
 WrapNamespaceBodyWithEmptyLines: Always

@@ -29,12 +29,10 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
   }
 
   // Use not-normal direction to generate two perpendicular directions
-  glm::vec3 perp_dir_1 =
-      glm::normalize(glm::cross(normal, direction_not_normal));
+  glm::vec3 perp_dir_1 = glm::normalize(glm::cross(normal, direction_not_normal));
   glm::vec3 perp_dir_2 = glm::normalize(glm::cross(normal, perp_dir_1));
 
-  return up * normal + cos(around) * over * perp_dir_1 +
-         sin(around) * over * perp_dir_2;
+  return up * normal + cos(around) * over * perp_dir_1 + sin(around) * over * perp_dir_2;
 }
 
 __host__ __device__ void scatter_ray(PathSegment& path_segment,

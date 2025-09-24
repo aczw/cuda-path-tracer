@@ -1,12 +1,9 @@
 #include "intersections.h"
 
-__host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(
-    Geometry box,
-    Ray r) {
+__host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(Geometry box, Ray r) {
   Ray q;
   q.origin = glm::vec3(box.inv_transform * glm::vec4(r.origin, 1.0f));
-  q.direction = glm::normalize(
-      glm::vec3(box.inv_transform * glm::vec4(r.direction, 0.0f)));
+  q.direction = glm::normalize(glm::vec3(box.inv_transform * glm::vec4(r.direction, 0.0f)));
 
   float t_min = -1e38f;
   float t_max = 1e38f;
@@ -44,8 +41,7 @@ __host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(
       intersection.is_outside = false;
     }
 
-    intersection.point =
-        glm::vec3(box.transform * glm::vec4(q.get_point(t_min), 1.0f));
+    intersection.point = glm::vec3(box.transform * glm::vec4(q.get_point(t_min), 1.0f));
     intersection.surface_normal =
         glm::normalize(glm::vec3(box.inv_transpose * glm::vec4(t_min_n, 0.0f)));
     intersection.t = glm::length(r.origin - intersection.point);
@@ -56,14 +52,12 @@ __host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(
   return cuda::std::nullopt;
 }
 
-__host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(
-    Geometry sphere,
-    Ray r) {
+__host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(Geometry sphere,
+                                                                               Ray r) {
   float radius = .5;
 
   glm::vec3 ro = glm::vec3(sphere.inv_transform * glm::vec4(r.origin, 1.0f));
-  glm::vec3 rd = glm::normalize(
-      glm::vec3(sphere.inv_transform * glm::vec4(r.direction, 0.0f)));
+  glm::vec3 rd = glm::normalize(glm::vec3(sphere.inv_transform * glm::vec4(r.direction, 0.0f)));
 
   Ray rt;
   rt.origin = ro;
@@ -98,8 +92,8 @@ __host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(
   glm::vec3 obj_space_point = rt.get_point(t);
 
   isect.point = glm::vec3(sphere.transform * glm::vec4(obj_space_point, 1.f));
-  isect.surface_normal = glm::normalize(
-      glm::vec3(sphere.inv_transpose * glm::vec4(obj_space_point, 0.f)));
+  isect.surface_normal =
+      glm::normalize(glm::vec3(sphere.inv_transpose * glm::vec4(obj_space_point, 0.f)));
 
   // Is this necessary...
   if (!isect.is_outside) {
