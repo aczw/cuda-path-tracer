@@ -7,7 +7,11 @@
 #include <cuda.h>
 #include <cuda/std/limits>
 #include <cuda/std/optional>
+#include <cuda/std/variant>
+#include <thrust/device_ptr.h>
 #include <thrust/execution_policy.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/partition.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
 
@@ -257,6 +261,7 @@ __global__ void kern_sample(int num_paths,
 
   cuda::std::visit(
       overloaded{
+          // Should never hit this case because we've stream compacted it away
           [=](OutOfBounds) {},
 
           [=](HitLight light) {
@@ -309,7 +314,11 @@ __global__ void kern_final_gather(int num_pixels, glm::vec3* image, PathSegment*
   image[segment.pixel_index] += segment.radiance;
 }
 
-PathTracer::PathTracer(glm::ivec2 resolution) {}
+struct IsNotOutOfBounds {
+  __host__ __device__ bool operator()(Intersection isect, PathSegment) {
+    return !cuda::std::holds_alternative<OutOfBounds>(isect);
+  }
+};
 
 void PathTracer::initialize(Scene* scene) {
   hst_scene = scene;
@@ -357,6 +366,14 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const int block_size_128 = 128;
   const int num_blocks_128 = divide_ceil(num_pixels, block_size_128);
 
+  const thrust::device_ptr<PathSegment> thrust_segments(dev_segments);
+  const thrust::device_ptr<Intersection> thrust_intersections(dev_intersections);
+
+  const thrust::zip_function zip_not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
+
+  const thrust::zip_iterator zip_begin =
+      thrust::make_zip_iterator(thrust_intersections, thrust_segments);
+
   // Initialize first batch of path segments
   kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(num_pixels, camera, curr_iter,
                                                            trace_depth, dev_segments);
@@ -371,10 +388,13 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
                                                             geometry_size, dev_material_list,
                                                             dev_segments, dev_intersections);
     check_cuda_error("kern_find_isects");
-
     curr_depth++;
 
-    // TODO(aczw): stream compact away out of bounds intersections
+    // Discard out of bounds intersections. While the goal is to remove "complete" paths,
+    // we don't discard intersections with lights yet because it's required below
+    thrust::zip_iterator oob_begin =
+        thrust::partition(zip_begin, zip_begin + num_paths, zip_not_oob);
+    num_paths = thrust::distance(zip_begin, oob_begin);
 
     // TODO(aczw): sort intersections by material_id, make it toggleable via UI
 

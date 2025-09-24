@@ -7,10 +7,7 @@
 
 void init_data_container(GuiDataContainer* gui_data);
 
-class PathTracer {
- public:
-  explicit PathTracer(glm::ivec2 resolution);
-
+struct PathTracer {
   void initialize(Scene* scene);
   void free();
 

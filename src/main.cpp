@@ -293,7 +293,7 @@ void run_main_loop() {
   Camera& camera = render_state->camera;
 
   std::array<char, 10> iter_str;
-  PathTracer path_tracer(camera.resolution);
+  PathTracer path_tracer;
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();

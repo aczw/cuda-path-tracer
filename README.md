@@ -10,7 +10,7 @@ CUDA Path Tracer
   * Windows 11 Pro (26100.4946)
   * Ryzen 5 7600X @ 4.7Ghz
   * 32 GB RAM
-  * RTX 5060 Ti 16 GB (Studio Driver 580.97)
+  * RTX 5060 Ti 16 GB (Studio Driver 581.29)
 
 # CUDA Path Tracer
 
@@ -46,6 +46,10 @@ Then, the overall throughput contribution for this intersection is given by `bsd
 ![](renders/lambertian_cosine_weighted/cornell.2025-09-23_00-38-16z.5000samp.png)
 
 5000 iterations.
+
+### Discarding out of bounds intersections
+
+TODO(aczw): use difference as metric to measure how effective sampling methods are?
 
 ## Building
 

@@ -18,9 +18,9 @@ struct Intermediate {
 
 /// An intersection can only exist in three possible states:
 ///
-/// - No intersection occurred because the ray went out of bounds.
-/// - An intersection occurred with a light (i.e. emissive material).
 /// - A "regular" intersection occurred with some geometry in the scene.
+/// - An intersection occurred with a light (i.e. emissive material).
+/// - No intersection occurred because the ray went out of bounds.
 using Intersection = cuda::std::variant<Intermediate, HitLight, OutOfBounds>;
 
 /// Helper for usage in `cuda::std::visit`. Taken from
