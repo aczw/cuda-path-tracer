@@ -11,9 +11,9 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^".*"'
     Priority: 1
-  - Regex: '^<(cuda*|thrust*|cub*).*>'
+  - Regex: '^<(cuda|thrust|cub)/?.*>'
     Priority: 2
-  - Regex: '^<(glm*|stb_*).*>'
+  - Regex: '^<(glm|stb|GL|GLFW)/?.*>'
     Priority: 3
   - Regex: '^<.*>'
     Priority: 4
