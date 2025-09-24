@@ -74,8 +74,3 @@ struct Intersection {
   glm::vec3 surface_normal;
   bool is_outside;
 };
-
-// Three cases
-// - Intersection hit light, path ends
-// - Intersection goes out of bounds, doesn't hit anything
-// - Path reaches max depth, never hit a light
