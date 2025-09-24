@@ -1,6 +1,6 @@
-#include "intersections.h"
+#include "hit.cuh"
 
-__host__ __device__ HitResult cube_intersection_test(Geometry box, Ray r) {
+__host__ __device__ HitResult test_cube_hit(Geometry box, Ray r) {
   Ray q;
   q.origin = glm::vec3(box.inv_transform * glm::vec4(r.origin, 1.0f));
   q.direction = glm::normalize(glm::vec3(box.inv_transform * glm::vec4(r.direction, 0.0f)));
@@ -52,7 +52,7 @@ __host__ __device__ HitResult cube_intersection_test(Geometry box, Ray r) {
   return cuda::std::nullopt;
 }
 
-__host__ __device__ HitResult sphere_intersection_test(Geometry sphere, Ray r) {
+__host__ __device__ HitResult test_sphere_hit(Geometry sphere, Ray r) {
   float radius = 0.5f;
 
   glm::vec3 ro = glm::vec3(sphere.inv_transform * glm::vec4(r.origin, 1.0f));
@@ -100,5 +100,5 @@ __host__ __device__ HitResult sphere_intersection_test(Geometry sphere, Ray r) {
     hit.surface_normal = -hit.surface_normal;
   }
 
-    return hit;
+  return hit;
 }

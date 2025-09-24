@@ -1,4 +1,4 @@
-#include "interactions.h"
+#include "sample.cuh"
 #include "utilities.cuh"
 
 #include <thrust/random.h>
@@ -40,14 +40,6 @@ __host__ __device__ void scatter_ray(PathSegment& path_segment,
                                      glm::vec3 normal,
                                      const Material& mat,
                                      thrust::default_random_engine& rng) {
-  Ray& ray = path_segment.ray;
-
-  // Offset a little from the intersection surface
-  ray.direction = calculate_random_direction_in_hemisphere(normal, rng);
-  ray.origin = intersection_point + EPSILON * ray.direction;
-
-  // TODO(aczw): figure out color contribution calculation
-  path_segment.throughput *= mat.color;
-
-  path_segment.remaining_bounces -= 1;
+  // TODO(aczw): figure out what to do with this??
+  return;
 }

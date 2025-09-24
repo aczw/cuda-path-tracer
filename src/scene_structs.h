@@ -54,10 +54,7 @@ struct PathSegment {
   int remaining_bounces;
 };
 
-// Use with a corresponding PathSegment to do:
-// 1) color contribution computation
-// 2) BSDF evaluation: generate a new ray
-struct ShadingData {
+struct Intersection {
   float t;
   glm::vec3 surface_normal;
   int material_id;

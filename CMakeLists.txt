@@ -49,8 +49,8 @@ include_directories(${GLM_INCLUDE_DIRS})
 
 set(headers
     src/image.h
-    src/interactions.h
-    src/intersections.h
+    src/sample.cuh
+    src/hit.cuh
     src/glslUtility.hpp
     src/path_tracer.h
     src/scene.h
@@ -66,8 +66,8 @@ set(sources
     src/image.cpp
     src/glslUtility.cpp
     src/path_tracer.cu
-    src/intersections.cu
-    src/interactions.cu
+    src/hit.cu
+    src/sample.cu
     src/scene.cpp
 )
 

@@ -1,6 +1,6 @@
-#include "interactions.h"
-#include "intersections.h"
+#include "hit.cuh"
 #include "path_tracer.h"
+#include "sample.cuh"
 #include "scene_structs.h"
 
 #include <cuda.h>
@@ -71,7 +71,7 @@ static glm::vec3* dev_image = nullptr;
 static Geometry* dev_geometry = nullptr;
 static Material* dev_materials = nullptr;
 static PathSegment* dev_path_segments = nullptr;
-static cuda::std::optional<ShadingData>* dev_shading_data = nullptr;
+static cuda::std::optional<Intersection>* dev_shading_data = nullptr;
 
 // TODO: static variables for device memory, any extra info you need, etc
 // ...
@@ -133,7 +133,7 @@ __global__ void kern_find_isects(int depth,
                                  PathSegment* path_segments,
                                  Geometry* geometry,
                                  int geometry_size,
-                                 cuda::std::optional<ShadingData>* shading_data) {
+                                 cuda::std::optional<Intersection>* shading_data) {
   int path_index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (path_index >= num_paths) {
@@ -154,11 +154,11 @@ __global__ void kern_find_isects(int depth,
 
     switch (geom.type) {
       case Geometry::Type::Cube:
-        result = cube_intersection_test(geom, path_ray);
+        result = test_cube_hit(geom, path_ray);
         break;
 
       case Geometry::Type::Sphere:
-        result = sphere_intersection_test(geom, path_ray);
+        result = test_sphere_hit(geom, path_ray);
         break;
 
       default:
@@ -187,7 +187,7 @@ __global__ void kern_find_isects(int depth,
 
 /**
  * "Fake" shader demonstrating what you might do with the info in a
- * `ShadingData`, as well as how to use Thrust's random number generator.
+ * `Intersection`, as well as how to use Thrust's random number generator.
  * Observe that since the Thrust random number generator basically adds "noise"
  * to the iteration, the image should start off noisy and get cleaner as more
  * iterations are computed.
@@ -197,7 +197,7 @@ __global__ void kern_find_isects(int depth,
  */
 __global__ void shade_fake_material(int curr_iteration,
                                     int num_paths,
-                                    cuda::std::optional<ShadingData>* shading_data,
+                                    cuda::std::optional<Intersection>* shading_data,
                                     PathSegment* path_segments,
                                     Material* materials) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -206,7 +206,7 @@ __global__ void shade_fake_material(int curr_iteration,
     return;
   }
 
-  cuda::std::optional<ShadingData> data_opt = shading_data[index];
+  cuda::std::optional<Intersection> data_opt = shading_data[index];
 
   // If there was no intersection, color the ray black. Lots of renderers use 4
   // channel color, RGBA, where A = alpha, often used for opacity, in which case
@@ -217,7 +217,7 @@ __global__ void shade_fake_material(int curr_iteration,
     return;
   }
 
-  const ShadingData& data = data_opt.value();
+  const Intersection& data = data_opt.value();
 
   // Set up the RNG. LOOK: this is how you use thrust's RNG! Please look at
   // make_seeded_random_engine as well.
@@ -245,7 +245,7 @@ __global__ void shade_fake_material(int curr_iteration,
 __global__ void kern_sample(int curr_iter,
                             int num_pixels,
                             int curr_depth,
-                            cuda::std::optional<ShadingData>* shading_data,
+                            cuda::std::optional<Intersection>* shading_data,
                             PathSegment* path_segments,
                             Material* materials) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -254,13 +254,13 @@ __global__ void kern_sample(int curr_iter,
     return;
   }
 
-  cuda::std::optional<ShadingData> data_opt = shading_data[index];
+  cuda::std::optional<Intersection> data_opt = shading_data[index];
 
   if (!data_opt) {
     return;
   }
 
-  const ShadingData& data = data_opt.value();
+  const Intersection& data = data_opt.value();
 
   // Set up the RNG. LOOK: this is how you use thrust's RNG! Please look at
   // make_seeded_random_engine as well.
@@ -334,8 +334,8 @@ void PathTracer::initialize(Scene* scene) {
   cudaMemcpy(dev_materials, scene->materials.data(), scene->materials.size() * sizeof(Material),
              cudaMemcpyHostToDevice);
 
-  cudaMalloc(&dev_shading_data, pixel_count * sizeof(cuda::std::optional<ShadingData>));
-  cudaMemset(dev_shading_data, 0, pixel_count * sizeof(cuda::std::optional<ShadingData>));
+  cudaMalloc(&dev_shading_data, pixel_count * sizeof(cuda::std::optional<Intersection>));
+  cudaMemset(dev_shading_data, 0, pixel_count * sizeof(cuda::std::optional<Intersection>));
 
   check_cuda_error("PathTracer::initialize");
 }
@@ -354,6 +354,7 @@ void PathTracer::free() {
 void PathTracer::run(uchar4* pbo, int curr_iter) {
   const int trace_depth = hst_scene->state.trace_depth;
   const Camera& camera = hst_scene->state.camera;
+  const int geometry_size = hst_scene->geoms.size();
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 
   const int block_size_64 = 64;
@@ -372,12 +373,11 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
   // Shoot ray into scene, bounce between objects, push shading chunks
   while (true) {
     // Clean shading chunks
-    cudaMemset(dev_shading_data, 0, num_pixels * sizeof(cuda::std::optional<ShadingData>));
+    cudaMemset(dev_shading_data, 0, num_pixels * sizeof(cuda::std::optional<Intersection>));
 
     int num_blocks_isects = divide_ceil(num_paths, block_size_128);
     kern_find_isects<<<num_blocks_isects, block_size_128>>>(
-        curr_depth, num_paths, dev_path_segments, dev_geometry, hst_scene->geoms.size(),
-        dev_shading_data);
+        curr_depth, num_paths, dev_path_segments, dev_geometry, geometry_size, dev_shading_data);
     check_cuda_error("kern_find_isects");
 
     curr_depth++;
