@@ -16,9 +16,9 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
   float over = sqrt(1 - up * up);  // sin(theta)
   float around = u01(rng) * 2.f * std::numbers::pi;
 
-  // Find a direction that is not the normal based off of whether or not the normal's components are
-  // all equal to sqrt(1/3) or whether or not at least one component is less than sqrt(1/3). Learned
-  // this trick from Peter Kutz.
+  // Find a direction that is not the normal based off of whether or not the
+  // normal's components are all equal to sqrt(1/3) or whether or not at least
+  // one component is less than sqrt(1/3). Learned this trick from Peter Kutz.
   glm::vec3 direction_not_normal;
   if (abs(normal.x) < SQRT_ONE_THIRD) {
     direction_not_normal = glm::vec3(1, 0, 0);
@@ -29,10 +29,12 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
   }
 
   // Use not-normal direction to generate two perpendicular directions
-  glm::vec3 perp_dir_1 = glm::normalize(glm::cross(normal, direction_not_normal));
+  glm::vec3 perp_dir_1 =
+      glm::normalize(glm::cross(normal, direction_not_normal));
   glm::vec3 perp_dir_2 = glm::normalize(glm::cross(normal, perp_dir_1));
 
-  return up * normal + cos(around) * over * perp_dir_1 + sin(around) * over * perp_dir_2;
+  return up * normal + cos(around) * over * perp_dir_1 +
+         sin(around) * over * perp_dir_2;
 }
 
 __host__ __device__ void scatter_ray(PathSegment& path_segment,

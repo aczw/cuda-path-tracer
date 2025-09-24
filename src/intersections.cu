@@ -1,9 +1,12 @@
 #include "intersections.h"
 
-__host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(Geometry box, Ray r) {
+__host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(
+    Geometry box,
+    Ray r) {
   Ray q;
   q.origin = multiply_mat4_vec4(box.inv_transform, glm::vec4(r.origin, 1.0f));
-  q.direction = glm::normalize(multiply_mat4_vec4(box.inv_transform, glm::vec4(r.direction, 0.0f)));
+  q.direction = glm::normalize(
+      multiply_mat4_vec4(box.inv_transform, glm::vec4(r.direction, 0.0f)));
 
   float t_min = -1e38f;
   float t_max = 1e38f;
@@ -41,10 +44,10 @@ __host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(Geo
       intersection.is_outside = false;
     }
 
-    intersection.point =
-        multiply_mat4_vec4(box.transform, glm::vec4(get_point_on_ray(q, t_min), 1.0f));
-    intersection.surface_normal =
-        glm::normalize(multiply_mat4_vec4(box.inv_transpose, glm::vec4(t_min_n, 0.0f)));
+    intersection.point = multiply_mat4_vec4(
+        box.transform, glm::vec4(get_point_on_ray(q, t_min), 1.0f));
+    intersection.surface_normal = glm::normalize(
+        multiply_mat4_vec4(box.inv_transpose, glm::vec4(t_min_n, 0.0f)));
     intersection.t = glm::length(r.origin - intersection.point);
 
     return intersection;
@@ -53,13 +56,15 @@ __host__ __device__ cuda::std::optional<Intersection> cube_intersection_test(Geo
   return cuda::std::nullopt;
 }
 
-__host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(Geometry sphere,
-                                                                               Ray r) {
+__host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(
+    Geometry sphere,
+    Ray r) {
   float radius = .5;
 
-  glm::vec3 ro = multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.origin, 1.0f));
-  glm::vec3 rd =
-      glm::normalize(multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.direction, 0.0f)));
+  glm::vec3 ro =
+      multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.origin, 1.0f));
+  glm::vec3 rd = glm::normalize(
+      multiply_mat4_vec4(sphere.inv_transform, glm::vec4(r.direction, 0.0f)));
 
   Ray rt;
   rt.origin = ro;
@@ -93,9 +98,10 @@ __host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(G
 
   glm::vec3 obj_space_point = get_point_on_ray(rt, t);
 
-  intersection.point = multiply_mat4_vec4(sphere.transform, glm::vec4(obj_space_point, 1.f));
-  intersection.surface_normal =
-      glm::normalize(multiply_mat4_vec4(sphere.inv_transpose, glm::vec4(obj_space_point, 0.f)));
+  intersection.point =
+      multiply_mat4_vec4(sphere.transform, glm::vec4(obj_space_point, 1.f));
+  intersection.surface_normal = glm::normalize(multiply_mat4_vec4(
+      sphere.inv_transpose, glm::vec4(obj_space_point, 0.f)));
 
   if (!intersection.is_outside) {
     intersection.surface_normal = -intersection.surface_normal;

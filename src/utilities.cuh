@@ -12,9 +12,8 @@ class GuiDataContainer {
   int traced_depth;
 };
 
-__host__ __device__ thrust::default_random_engine make_seeded_random_engine(int iteration,
-                                                                            int index,
-                                                                            int depth);
+__host__ __device__ thrust::default_random_engine
+make_seeded_random_engine(int iteration, int index, int depth);
 
 /**
  * Handy-dandy hash function that provides seeds for random number generation.

@@ -14,7 +14,8 @@ using std::ios;
 
 namespace glslUtility {
 
-// embedded passthrough shaders so that default passthrough shaders don't need to be loaded
+// embedded passthrough shaders so that default passthrough shaders don't need
+// to be loaded
 static std::string passthroughVS =
     "   #version 120 \n"
     "   attribute vec4 Position; \n"
@@ -124,14 +125,17 @@ void compileShader(const char* shaderName,
 shaders_t loadDefaultShaders() {
   shaders_t out;
 
-  compileShader("Passthrough Vertex", passthroughVS.c_str(), GL_VERTEX_SHADER, (GLint&)out.vertex);
-  compileShader("Passthrough Fragment", passthroughFS.c_str(), GL_FRAGMENT_SHADER,
-                (GLint&)out.fragment);
+  compileShader("Passthrough Vertex", passthroughVS.c_str(), GL_VERTEX_SHADER,
+                (GLint&)out.vertex);
+  compileShader("Passthrough Fragment", passthroughFS.c_str(),
+                GL_FRAGMENT_SHADER, (GLint&)out.fragment);
 
   return out;
 }
 
-shaders_t loadShaders(const char* vert_path, const char* frag_path, const char* geom_path = 0) {
+shaders_t loadShaders(const char* vert_path,
+                      const char* frag_path,
+                      const char* geom_path = 0) {
   shaders_t out;
 
   // load shaders & get length of each
@@ -169,7 +173,8 @@ void attachAndLinkProgram(GLuint program, shaders_t shaders) {
   printLinkInfoLog(program);
 }
 
-GLuint createDefaultProgram(const char* attributeLocations[], GLuint numberOfLocations) {
+GLuint createDefaultProgram(const char* attributeLocations[],
+                            GLuint numberOfLocations) {
   glslUtility::shaders_t shaders = glslUtility::loadDefaultShaders();
 
   GLuint program = glCreateProgram();
@@ -187,7 +192,8 @@ GLuint createProgram(const char* vertexShaderPath,
                      const char* fragmentShaderPath,
                      const char* attributeLocations[],
                      GLuint numberOfLocations) {
-  glslUtility::shaders_t shaders = glslUtility::loadShaders(vertexShaderPath, fragmentShaderPath);
+  glslUtility::shaders_t shaders =
+      glslUtility::loadShaders(vertexShaderPath, fragmentShaderPath);
 
   GLuint program = glCreateProgram();
 
