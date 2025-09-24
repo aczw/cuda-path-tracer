@@ -28,3 +28,8 @@ __host__ __device__ inline unsigned int generate_hash(unsigned int a) {
 
   return a;
 }
+
+/**
+ * Divides `b` by `a` and rounds it up.
+ */
+__host__ __device__ int divide_ceil(int a, int b);
