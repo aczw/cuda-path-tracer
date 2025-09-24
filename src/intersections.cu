@@ -83,31 +83,32 @@ __host__ __device__ cuda::std::optional<Intersection> sphere_intersection_test(
   float t1 = first_term + square_root;
   float t2 = first_term - square_root;
 
-  Intersection intersection;
+  Intersection isect;
 
   float t = 0;
   if (t1 < 0 && t2 < 0) {
     return cuda::std::nullopt;
   } else if (t1 > 0 && t2 > 0) {
     t = min(t1, t2);
-    intersection.is_outside = true;
+    isect.is_outside = true;
   } else {
     t = max(t1, t2);
-    intersection.is_outside = false;
+    isect.is_outside = false;
   }
 
   glm::vec3 obj_space_point = get_point_on_ray(rt, t);
 
-  intersection.point =
+  isect.point =
       multiply_mat4_vec4(sphere.transform, glm::vec4(obj_space_point, 1.f));
-  intersection.surface_normal = glm::normalize(multiply_mat4_vec4(
+  isect.surface_normal = glm::normalize(multiply_mat4_vec4(
       sphere.inv_transpose, glm::vec4(obj_space_point, 0.f)));
 
-  if (!intersection.is_outside) {
-    intersection.surface_normal = -intersection.surface_normal;
+  // Is this necessary...
+  if (!isect.is_outside) {
+    isect.surface_normal = -isect.surface_normal;
   }
 
-  intersection.t = glm::length(r.origin - intersection.point);
+  isect.t = glm::length(r.origin - isect.point);
 
-  return intersection;
+  return isect;
 }

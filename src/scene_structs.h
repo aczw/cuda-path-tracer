@@ -1,5 +1,7 @@
 #pragma once
 
+#include "camera.hpp"
+
 #include <cuda_runtime.h>
 
 #include <glm/glm.hpp>
@@ -39,17 +41,6 @@ struct Material {
   float has_refractive;
   float index_of_refraction;
   float emittance;
-};
-
-struct Camera {
-  glm::ivec2 resolution;
-  glm::vec3 position;
-  glm::vec3 lookAt;
-  glm::vec3 view;
-  glm::vec3 up;
-  glm::vec3 right;
-  glm::vec2 fov;
-  glm::vec2 pixelLength;
 };
 
 struct RenderState {

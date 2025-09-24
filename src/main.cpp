@@ -354,7 +354,7 @@ void run_cuda() {
     camera.right = r;
 
     camera.position = camera_position;
-    camera_position += camera.lookAt;
+    camera_position += camera.look_at;
 
     camera.position = camera_position;
     camera_changed = false;
@@ -404,7 +404,7 @@ void keyCallback(GLFWwindow* window,
         camera_changed = true;
         render_state = &scene->state;
         Camera& cam = render_state->camera;
-        cam.lookAt = ogLookAt;
+        cam.look_at = ogLookAt;
         break;
     }
   }
@@ -447,8 +447,8 @@ void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
     right.y = 0.0f;
     right = glm::normalize(right);
 
-    cam.lookAt -= (float)(xpos - lastX) * right * 0.01f;
-    cam.lookAt += (float)(ypos - lastY) * forward * 0.01f;
+    cam.look_at -= (float)(xpos - lastX) * right * 0.01f;
+    cam.look_at += (float)(ypos - lastY) * forward * 0.01f;
     camera_changed = true;
   }
 
@@ -492,7 +492,7 @@ int main(int argc, char* argv[]) {
   glm::vec3 viewZY = glm::vec3(0.0f, view.y, view.z);
   phi = glm::acos(glm::dot(glm::normalize(viewXZ), glm::vec3(0, 0, -1)));
   theta = glm::acos(glm::dot(glm::normalize(viewZY), glm::vec3(0, 1, 0)));
-  ogLookAt = cam.lookAt;
+  ogLookAt = cam.look_at;
   zoom = glm::length(cam.position - ogLookAt);
 
   // Initialize CUDA and GL components

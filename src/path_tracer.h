@@ -11,9 +11,9 @@ void initialize(Scene* scene);
 void free();
 
 /**
- * Wrapper for the `__global__` call that sets up the kernel calls and performs
- * the path tracing
+ * Wrapper for the `__global__` call that sets up the kernel calls
+ * and performs the path tracing
  */
-void run(uchar4* pbo, int curr_iteration);
+void run(uchar4* pbo, int curr_iter);
 
 }  // namespace path_tracer
