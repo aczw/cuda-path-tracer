@@ -14,14 +14,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
 
 #include <array>
-#include <charconv>
 #include <cstdlib>
-#include <cstring>
 #include <format>
-#include <fstream>
 #include <iostream>
 #include <numbers>
 #include <sstream>

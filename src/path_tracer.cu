@@ -105,18 +105,18 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
   float y = glm::ceil((static_cast<float>(index) + 1.0) / cam_res_x) - 1.0;
   float x = static_cast<float>(index - (y * cam_res_x));
 
+  Ray ray = {
+      .origin = camera.position,
+      // TODO(aczw): implement antialiasing by jittering the ray
+      .direction = glm::normalize(
+          camera.view -
+          camera.right * camera.pixel_length.x * (x - static_cast<float>(cam_res_x) * 0.5f) -
+          camera.up * camera.pixel_length.y * (y - static_cast<float>(camera.resolution.y) * 0.5f)),
+  };
+
   // Initialize path segment
   path_segments[index] = {
-      .ray =
-          {
-              .origin = camera.position,
-              // TODO(aczw): implement antialiasing by jittering the ray
-              .direction = glm::normalize(camera.view -
-                                          camera.right * camera.pixel_length.x *
-                                              (x - static_cast<float>(cam_res_x) * 0.5f) -
-                                          camera.up * camera.pixel_length.y *
-                                              (y - static_cast<float>(camera.resolution.y) * 0.5f)),
-          },
+      .ray = ray,
       .radiance = glm::vec3(),
       .throughput = glm::vec3(1.f),
       .pixel_index = index,
@@ -146,49 +146,42 @@ __global__ void kern_find_isects(int depth,
   int hit_geometry_index = -1;
   glm::vec3 surface_normal;
 
-  // TODO(aczw): do something with this value
-  bool is_outside = true;
-
   // Naively parse through global geometry
   // TODO(aczw): use better intersection algorithm i.e. acceleration structures
   for (int geometry_index = 0; geometry_index < geometry_size; ++geometry_index) {
-    Geometry& geom = geometry[geometry_index];
-    cuda::std::optional<Intersection> curr_intersection_opt;
+    Geometry geom = geometry[geometry_index];
+    HitResult result;
 
     switch (geom.type) {
       case Geometry::Type::Cube:
-        curr_intersection_opt = cube_intersection_test(geom, path_ray);
+        result = cube_intersection_test(geom, path_ray);
         break;
 
       case Geometry::Type::Sphere:
-        curr_intersection_opt = sphere_intersection_test(geom, path_ray);
+        result = sphere_intersection_test(geom, path_ray);
         break;
 
       default:
         break;
     }
 
-    // Compute the minimum t to determine what scene geometry object is the
-    // closest
-    if (curr_intersection_opt && t_min > curr_intersection_opt->t) {
-      const Intersection& intersection = curr_intersection_opt.value();
-
-      t_min = intersection.t;
+    // Discovered a closer object, record it
+    if (result.has_value() && t_min > result->t) {
+      t_min = result->t;
       hit_geometry_index = geometry_index;
-      surface_normal = intersection.surface_normal;
+      surface_normal = result->surface_normal;
     }
   }
 
+  // Check whether we hit any geometry at all
   if (hit_geometry_index == -1) {
-    // Intersection calculation went out of bounds, path ends here
     shading_data[path_index] = cuda::std::nullopt;
   } else {
-    ShadingData data;
-    data.t = t_min;
-    data.material_id = geometry[hit_geometry_index].material_id;
-    data.surface_normal = surface_normal;
-
-    shading_data[path_index] = data;
+    shading_data[path_index] = {
+        .t = t_min,
+        .surface_normal = surface_normal,
+        .material_id = geometry[hit_geometry_index].material_id,
+    };
   }
 }
 

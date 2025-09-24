@@ -3,8 +3,6 @@
 #include "camera.hpp"
 #include "ray.cuh"
 
-#include <cuda_runtime.h>
-
 #include <glm/glm.hpp>
 
 #include <string>
@@ -17,6 +15,7 @@ struct Geometry {
 
   Type type;
   int material_id;
+
   glm::vec3 translation;
   glm::vec3 rotation;
   glm::vec3 scale;
@@ -62,11 +61,4 @@ struct ShadingData {
   float t;
   glm::vec3 surface_normal;
   int material_id;
-};
-
-struct Intersection {
-  float t;
-  glm::vec3 point;
-  glm::vec3 surface_normal;
-  bool is_outside;
 };
