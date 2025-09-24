@@ -1,10 +1,7 @@
 #include "interactions.h"
 #include "intersections.h"
-#include "kern_exec_config.hpp"
 #include "path_tracer.h"
-#include "scene.h"
 #include "scene_structs.h"
-#include "utilities.cuh"
 
 #include <cuda.h>
 #include <cuda/std/limits>
@@ -342,12 +339,7 @@ __global__ void kern_final_gather(int num_pixels,
   image[segment.pixel_index] += segment.radiance;
 }
 
-PathTracer::PathTracer(glm::ivec2 resolution)
-    : config_ray_gen(resolution, 64),
-      config_isect(resolution, 128),
-      config_shade(resolution, 128),
-      config_gather(resolution, 128),
-      config_send(resolution, 64) {}
+PathTracer::PathTracer(glm::ivec2 resolution) {}
 
 void PathTracer::initialize(Scene* scene) {
   hst_scene = scene;
@@ -404,6 +396,7 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
   check_cuda_error("kern_gen_rays_from_cam");
 
   int curr_depth = 0;
+  int num_paths = num_pixels;
 
   // Shoot ray into scene, bounce between objects, push shading chunks
   while (true) {
@@ -411,9 +404,9 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
     cudaMemset(dev_shading_data, 0,
                num_pixels * sizeof(cuda::std::optional<ShadingData>));
 
-    kern_find_isects<<<config_isect.get_num_blocks(),
-                       config_isect.get_block_size()>>>(
-        curr_depth, num_pixels, dev_path_segments, dev_geometry,
+    int num_blocks_isects = divide_ceil(num_paths, block_size_128);
+    kern_find_isects<<<num_blocks_isects, block_size_128>>>(
+        curr_depth, num_paths, dev_path_segments, dev_geometry,
         hst_scene->geoms.size(), dev_shading_data);
     check_cuda_error("kern_find_isects");
 
@@ -423,9 +416,9 @@ void PathTracer::run(uchar4* pbo, int curr_iter) {
 
     // TODO(aczw): sort intersections by material_id, make it toggleable via UI
 
-    kern_sample<<<config_shade.get_num_blocks(),
-                  config_shade.get_block_size()>>>(
-        curr_iter, num_pixels, curr_depth, dev_shading_data, dev_path_segments,
+    const int num_blocks_sample = divide_ceil(num_paths, block_size_128);
+    kern_sample<<<num_blocks_sample, block_size_128>>>(
+        curr_iter, num_paths, curr_depth, dev_shading_data, dev_path_segments,
         dev_materials);
 
     // TODO(aczw): stream compact away all of the following:

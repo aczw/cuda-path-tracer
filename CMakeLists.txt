@@ -57,7 +57,6 @@ set(headers
     src/scene_structs.h
     src/utilities.cuh
     src/camera.hpp
-    src/kern_exec_config.hpp
     src/ray.cuh
 )
 
@@ -70,8 +69,6 @@ set(sources
     src/intersections.cu
     src/interactions.cu
     src/scene.cpp
-    src/utilities.cu
-    src/kern_exec_config.cpp
 )
 
 set(imgui_headers

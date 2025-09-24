@@ -1,6 +1,5 @@
 #pragma once
 
-#include "kern_exec_config.hpp"
 #include "scene.h"
 #include "utilities.cuh"
 
@@ -20,11 +19,4 @@ class PathTracer {
    * and performs the path tracing
    */
   void run(uchar4* pbo, int curr_iter);
-
- private:
-  KernExecConfig config_ray_gen;
-  KernExecConfig config_isect;
-  KernExecConfig config_shade;
-  KernExecConfig config_gather;
-  KernExecConfig config_send;
 };
