@@ -333,7 +333,7 @@ void run_main_loop() {
       curr_iteration++;
       cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
 
-      path_tracer.run(pbo_dptr, curr_iteration);
+      path_tracer.run_iteration(pbo_dptr, curr_iteration);
 
       // unmap buffer object
       cudaGLUnmapBufferObject(pbo);

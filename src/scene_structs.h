@@ -53,9 +53,3 @@ struct PathSegment {
   int pixel_index;
   int remaining_bounces;
 };
-
-struct Intersection {
-  float t;
-  glm::vec3 surface_normal;
-  int material_id;
-};

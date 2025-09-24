@@ -58,6 +58,7 @@ set(headers
     src/utilities.cuh
     src/camera.hpp
     src/ray.cuh
+    src/intersection.cuh
 )
 
 set(sources
