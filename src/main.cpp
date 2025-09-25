@@ -250,6 +250,9 @@ void render_gui(GuiData* gui_data) {
     ImGui::Separator();
 
     ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
+    ImGui::Checkbox("Discard paths that went out of bounds", &gui_data->discard_oob_paths);
+    ImGui::Checkbox("Discard paths that intersected with a light",
+                    &gui_data->discard_light_isect_paths);
   }
   ImGui::End();
 
@@ -444,6 +447,8 @@ int main(int argc, char* argv[]) {
   std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
       .max_depth = scene->state.trace_depth,
       .sort_paths_by_material = true,
+      .discard_oob_paths = true,
+      .discard_light_isect_paths = true,
   });
 
   // Set up camera stuff from loaded path tracer settings

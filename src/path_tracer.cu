@@ -305,15 +305,13 @@ struct SortByMaterialId {
 PathTracer::PathTracer(GuiData* gui_data, Scene* scene) : gui_data(gui_data), scene(scene) {}
 
 void PathTracer::initialize() {
-  scene = scene;
-
   const Camera& cam = scene->state.camera;
-  const int pixel_count = cam.resolution.x * cam.resolution.y;
+  const int num_pixels = cam.resolution.x * cam.resolution.y;
 
-  cudaMalloc(&dev_image, pixel_count * sizeof(glm::vec3));
-  cudaMemset(dev_image, 0, pixel_count * sizeof(glm::vec3));
+  cudaMalloc(&dev_image, num_pixels * sizeof(glm::vec3));
+  cudaMemset(dev_image, 0, num_pixels * sizeof(glm::vec3));
 
-  cudaMalloc(&dev_segments, pixel_count * sizeof(PathSegment));
+  cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
 
   cudaMalloc(&dev_geometry_list, scene->geometry_list.size() * sizeof(Geometry));
   cudaMemcpy(dev_geometry_list, scene->geometry_list.data(),
@@ -323,7 +321,7 @@ void PathTracer::initialize() {
   cudaMemcpy(dev_material_list, scene->material_list.data(),
              scene->material_list.size() * sizeof(Material), cudaMemcpyHostToDevice);
 
-  cudaMalloc(&dev_intersections, pixel_count * sizeof(Intersection));
+  cudaMalloc(&dev_intersections, num_pixels * sizeof(Intersection));
 
   check_cuda_error("PathTracer::initialize");
 }
@@ -353,8 +351,11 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
   const thrust::device_ptr<PathSegment> thrust_segments(dev_segments);
   const thrust::device_ptr<Intersection> thrust_intersections(dev_intersections);
+
   const thrust::zip_iterator zip_begin =
       thrust::make_zip_iterator(thrust_intersections, thrust_segments);
+  thrust::zip_iterator zip_end =
+      thrust::make_zip_iterator(thrust_intersections + num_pixels, thrust_segments + num_pixels);
 
   const thrust::zip_function zip_not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
   const thrust::zip_function zip_not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
@@ -377,12 +378,13 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
     // Discard out of bounds intersections. While the goal is to remove "complete" paths,
     // we don't discard intersections with lights yet because it's required below
-    const thrust::zip_iterator zip_oob_begin =
-        thrust::partition(zip_begin, zip_begin + num_paths, zip_not_oob);
-    num_paths = thrust::distance(zip_begin, zip_oob_begin);
+    if (gui_data->discard_oob_paths) {
+      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, zip_not_oob);
+      num_paths = thrust::distance(zip_begin, zip_end);
+    }
 
     if (gui_data->sort_paths_by_material) {
-      thrust::sort(zip_begin, zip_oob_begin, SortByMaterialId{});
+      thrust::sort(zip_begin, zip_end, SortByMaterialId{});
     }
 
     const int num_blocks_sample = divide_ceil(num_paths, block_size_128);
@@ -393,9 +395,10 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     // TODO(aczw): stream compact away all of the following:
     // - russian roulette
     // - too many bounces within glass
-    const thrust::zip_iterator zip_light_begin =
-        thrust::partition(zip_begin, zip_oob_begin, zip_not_light_isect);
-    num_paths = thrust::distance(zip_begin, zip_light_begin);
+    if (gui_data->discard_light_isect_paths) {
+      zip_end = thrust::partition(zip_begin, zip_end, zip_not_light_isect);
+      num_paths = thrust::distance(zip_begin, zip_end);
+    }
 
     if (curr_depth == max_depth || num_paths == 0) {
       break;
