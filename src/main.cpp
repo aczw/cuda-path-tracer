@@ -27,14 +27,9 @@
 #include <sstream>
 #include <string>
 
-GLuint positionLocation = 0;
-GLuint texcoordsLocation = 1;
-GLuint pbo;
-GLuint display_image;
-
-void initialize_textures(int width, int height) {
-  glGenTextures(1, &display_image);
-  glBindTexture(GL_TEXTURE_2D, display_image);
+void initialize_textures(RenderContext* ctx, int width, int height) {
+  glGenTextures(1, &ctx->display_image);
+  glBindTexture(GL_TEXTURE_2D, ctx->display_image);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
@@ -45,20 +40,22 @@ void initialize_vao(void) {
   GLfloat uv[] = {1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   GLushort indices[] = {0, 1, 3, 3, 1, 2};
 
-  GLuint vertexBufferObjID[3];
-  glGenBuffers(3, vertexBufferObjID);
+  GLuint vertex_buffer_obj_id[3];
+  glGenBuffers(3, vertex_buffer_obj_id);
 
-  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[0]);
+  GLuint position_location = 0;
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_obj_id[0]);
   glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-  glVertexAttribPointer((GLuint)positionLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
-  glEnableVertexAttribArray(positionLocation);
+  glVertexAttribPointer((GLuint)position_location, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(position_location);
 
-  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[1]);
+  GLuint uv_location = 1;
+  glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer_obj_id[1]);
   glBufferData(GL_ARRAY_BUFFER, sizeof(uv), uv, GL_STATIC_DRAW);
-  glVertexAttribPointer((GLuint)texcoordsLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
-  glEnableVertexAttribArray(texcoordsLocation);
+  glVertexAttribPointer((GLuint)uv_location, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(uv_location);
 
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferObjID[2]);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertex_buffer_obj_id[2]);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
@@ -67,7 +64,6 @@ GLuint initialize_shader() {
   GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
   GLint location;
 
-  // glUseProgram(program);
   if ((location = glGetUniformLocation(program, "u_image")) != -1) {
     glUniform1i(location, 0);
   }
@@ -75,20 +71,20 @@ GLuint initialize_shader() {
   return program;
 }
 
-void initialize_pbo(int num_pixels) {
+void initialize_pbo(RenderContext* ctx, int num_pixels) {
   // Set up vertex data parameter
   int num_values = num_pixels * 4;
   int size_tex_data = sizeof(GLubyte) * num_values;
 
   // Generate a buffer ID called a PBO (Pixel Buffer Object)
-  glGenBuffers(1, &pbo);
+  glGenBuffers(1, &ctx->pbo);
 
   // Make this the current UNPACK buffer (OpenGL is state-based)
-  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, ctx->pbo);
 
   // Allocate data for the buffer. 4-channel 8-bit image
   glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
-  cudaGLRegisterBufferObject(pbo);
+  cudaGLRegisterBufferObject(ctx->pbo);
 }
 
 /// Initialize CUDA, OpenGL, and GUI components.
@@ -114,9 +110,8 @@ bool initialize_components(RenderContext* ctx, GLFWwindow* window) {
   int height = ctx->get_height();
 
   initialize_vao();
-  initialize_textures(width, height);
-  // cudaGLSetGLDevice(0);
-  initialize_pbo(width * height);
+  initialize_textures(ctx, width, height);
+  initialize_pbo(ctx, width * height);
 
   glUseProgram(initialize_shader());
   glActiveTexture(GL_TEXTURE0);
@@ -124,24 +119,24 @@ bool initialize_components(RenderContext* ctx, GLFWwindow* window) {
   return true;
 }
 
-void free_components() {
+void free_components(RenderContext* ctx) {
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
-  if (pbo) {
+  if (ctx->pbo) {
     // Unregister this buffer object with CUDA
-    cudaGLUnregisterBufferObject(pbo);
+    cudaGLUnregisterBufferObject(ctx->pbo);
 
-    glBindBuffer(GL_ARRAY_BUFFER, pbo);
-    glDeleteBuffers(1, &pbo);
+    glBindBuffer(GL_ARRAY_BUFFER, ctx->pbo);
+    glDeleteBuffers(1, &ctx->pbo);
 
-    pbo = (GLuint)NULL;
+    ctx->pbo = 0;
   }
 
-  if (display_image) {
-    glDeleteTextures(1, &display_image);
-    display_image = (GLuint)NULL;
+  if (ctx->display_image) {
+    glDeleteTextures(1, &ctx->display_image);
+    ctx->display_image = 0;
   }
 }
 
@@ -166,20 +161,6 @@ void render_gui(GuiData* gui_data) {
     ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
   }
   ImGui::End();
-
-  // ImGui::Text("This is some useful text.");
-  // ImGui::Checkbox("Demo Window", &show_demo_window);
-  // ImGui::Checkbox("Another Window", &show_another_window);
-
-  // ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-  // ImGui::ColorEdit3("clear color", (float*)&clear_color);
-
-  // if (ImGui::Button("Button")) {
-  //   counter++;
-  // }
-
-  // ImGui::SameLine();
-  // ImGui::Text("counter = %d", counter);
 
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -225,12 +206,12 @@ void loop(RenderContext* ctx, GLFWwindow* window, GuiData* gui_data) {
 
       // Map OpenGL buffer object for writing from CUDA on a single GPU.
       // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-      cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
+      cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), ctx->pbo);
 
       path_tracer.run_iteration(pbo_dptr, ctx->curr_iteration);
 
       // Unmap buffer object
-      cudaGLUnmapBufferObject(pbo);
+      cudaGLUnmapBufferObject(ctx->pbo);
     } else {
       ctx->save_image();
       path_tracer.free();
@@ -243,8 +224,8 @@ void loop(RenderContext* ctx, GLFWwindow* window, GuiData* gui_data) {
         std::format("CIS 5650 CUDA Path Tracer | {} iterations", ctx->curr_iteration);
     glfwSetWindowTitle(window, title.c_str());
 
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-    glBindTexture(GL_TEXTURE_2D, display_image);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, ctx->pbo);
+    glBindTexture(GL_TEXTURE_2D, ctx->display_image);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -293,7 +274,7 @@ int main(int argc, char* argv[]) {
   }
 
   loop(ctx.get(), window.get(), gui_data.get());
-  free_components();
+  free_components(ctx.get());
 
   return EXIT_SUCCESS;
 }

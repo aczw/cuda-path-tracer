@@ -59,6 +59,9 @@ bool RenderContext::try_open_scene(std::string_view scene_file) {
   last_cursor_x = -1.f;
   last_cursor_y = -1.f;
 
+  pbo = 0;
+  display_image = 0;
+
   return true;
 }
 

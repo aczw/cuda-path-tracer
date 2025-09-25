@@ -4,6 +4,7 @@
 #include "image.hpp"
 #include "scene.hpp"
 
+#include <GL/glew.h>
 #include <glm/glm.hpp>
 
 #include <string>
@@ -38,4 +39,7 @@ class RenderContext {
   InputBundle input;
   float zoom, theta, phi;
   double last_cursor_x, last_cursor_y;
+
+  GLuint pbo;
+  GLuint display_image;
 };

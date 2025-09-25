@@ -14,6 +14,7 @@
 #include <thrust/partition.h>
 #include <thrust/random.h>
 #include <thrust/remove.h>
+#include <thrust/zip_function.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/norm.hpp>
