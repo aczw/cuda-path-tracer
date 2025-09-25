@@ -66,7 +66,8 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
                                        Camera camera,
                                        int curr_iter,
                                        int max_depth,
-                                       PathSegment* path_segments) {
+                                       PathSegment* path_segments,
+                                       bool perform_stochastic_sampling) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -77,7 +78,16 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
 
   // Derive image x-coord and y-coord from index
   float y = glm::ceil((static_cast<float>(index) + 1.0) / cam_res_x) - 1.0;
-  float x = static_cast<float>(index - (y * cam_res_x));
+  float x = static_cast<float>(index - y * cam_res_x);
+
+  // Reduce aliasing via stochastic sampling
+  if (perform_stochastic_sampling) {
+    thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, max_depth);
+    thrust::uniform_real_distribution<float> uniform_01;
+
+    y += uniform_01(rng);
+    x += uniform_01(rng);
+  }
 
   Ray ray = {
       .origin = camera.position,
@@ -311,8 +321,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const thrust::zip_function zip_not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
 
   // Initialize first batch of path segments
-  kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(num_pixels, camera, curr_iter, max_depth,
-                                                           dev_segments);
+  kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(
+      num_pixels, camera, curr_iter, max_depth, dev_segments, gui_data->stochastic_sampling);
   check_cuda_error("kern_gen_rays_from_cam");
 
   int curr_depth = 0;

@@ -40,7 +40,7 @@ static glm::vec3 cammove;
 
 float zoom, theta, phi;
 glm::vec3 camera_position;
-glm::vec3 ogLookAt;  // for recentering the camera
+glm::vec3 original_look_at;
 
 RenderState* render_state;
 int curr_iteration;
@@ -70,7 +70,7 @@ std::string get_current_time() {
   return std::string(buf);
 }
 
-void initTextures() {
+void init_textures() {
   glGenTextures(1, &display_image);
   glBindTexture(GL_TEXTURE_2D, display_image);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -78,7 +78,7 @@ void initTextures() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
-void initVAO(void) {
+void init_vao(void) {
   GLfloat vertices[] = {
       -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
   };
@@ -104,7 +104,7 @@ void initVAO(void) {
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
-GLuint initShader() {
+GLuint init_shader() {
   const char* attribLocations[] = {"Position", "Texcoords"};
   GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
   GLint location;
@@ -117,7 +117,7 @@ GLuint initShader() {
   return program;
 }
 
-void deletePBO(GLuint* pbo) {
+void delete_pbo(GLuint* pbo) {
   if (pbo) {
     // unregister this buffer object with CUDA
     cudaGLUnregisterBufferObject(*pbo);
@@ -129,28 +129,25 @@ void deletePBO(GLuint* pbo) {
   }
 }
 
-void deleteTexture(GLuint* tex) {
-  glDeleteTextures(1, tex);
-  *tex = (GLuint)NULL;
-}
-
-void cleanupCuda() {
+void clean_up_cuda() {
   if (pbo) {
-    deletePBO(&pbo);
+    delete_pbo(&pbo);
   }
+
   if (display_image) {
-    deleteTexture(&display_image);
+    glDeleteTextures(1, &display_image);
+    display_image = (GLuint)NULL;
   }
 }
 
-void initCuda() {
+void init_cuda() {
   cudaGLSetGLDevice(0);
 
   // Clean up on program exit
-  atexit(cleanupCuda);
+  atexit(clean_up_cuda);
 }
 
-void initPBO() {
+void init_pbo() {
   // set up vertex data parameter
   int num_texels = width * height;
   int num_values = num_texels * 4;
@@ -212,12 +209,12 @@ GLFWwindow* initialize_components(Scene* scene) {
   ImGui_ImplOpenGL3_Init("#version 120");
 
   // Initialize other stuff
-  initVAO();
-  initTextures();
-  initCuda();
-  initPBO();
+  init_vao();
+  init_textures();
+  init_cuda();
+  init_pbo();
 
-  GLuint passthrough_prog = initShader();
+  GLuint passthrough_prog = init_shader();
   glUseProgram(passthrough_prog);
   glActiveTexture(GL_TEXTURE0);
 
@@ -253,6 +250,7 @@ void render_gui(GuiData* gui_data) {
     ImGui::Checkbox("Discard paths that went out of bounds", &gui_data->discard_oob_paths);
     ImGui::Checkbox("Discard paths that intersected with a light",
                     &gui_data->discard_light_isect_paths);
+    ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
   }
   ImGui::End();
 
@@ -297,6 +295,7 @@ void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
   Camera& camera = render_state->camera;
   std::array<char, 10> iter_str;
 
+  GuiData prev_gui_data = *gui_data;
   PathTracer path_tracer(gui_data, scene);
 
   while (!glfwWindowShouldClose(window)) {
@@ -320,6 +319,10 @@ void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
       camera.position = camera_position;
 
       camera_changed = false;
+    }
+
+    if (prev_gui_data.stochastic_sampling != gui_data->stochastic_sampling) {
+      curr_iteration = 0;
     }
 
     if (curr_iteration == 0) {
@@ -361,7 +364,7 @@ void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
     // VAO, shader program, and texture already bound
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-    // Render ImGui Stuff
+    prev_gui_data = *gui_data;
     render_gui(gui_data);
 
     glfwSwapBuffers(window);
@@ -385,7 +388,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     case GLFW_KEY_SPACE:
       camera_changed = true;
       render_state = &(static_cast<Scene*>(glfwGetWindowUserPointer(window))->state);
-      render_state->camera.look_at = ogLookAt;
+      render_state->camera.look_at = original_look_at;
       break;
   }
 }
@@ -449,6 +452,7 @@ int main(int argc, char* argv[]) {
       .sort_paths_by_material = true,
       .discard_oob_paths = true,
       .discard_light_isect_paths = true,
+      .stochastic_sampling = true,
   });
 
   // Set up camera stuff from loaded path tracer settings
@@ -471,8 +475,8 @@ int main(int argc, char* argv[]) {
   glm::vec3 viewZY = glm::vec3(0.0f, view.y, view.z);
   phi = glm::acos(glm::dot(glm::normalize(viewXZ), glm::vec3(0, 0, -1)));
   theta = glm::acos(glm::dot(glm::normalize(viewZY), glm::vec3(0, 1, 0)));
-  ogLookAt = cam.look_at;
-  zoom = glm::length(cam.position - ogLookAt);
+  original_look_at = cam.look_at;
+  zoom = glm::length(cam.position - original_look_at);
 
   GLFWwindow* window = initialize_components(scene.get());
   loop(window, gui_data.get(), scene.get());
