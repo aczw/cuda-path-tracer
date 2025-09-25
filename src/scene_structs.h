@@ -14,7 +14,7 @@ struct Geometry {
   enum class Type { Sphere, Cube };
 
   Type type;
-  int material_id;
+  char material_id;
 
   glm::vec3 translation;
   glm::vec3 rotation;

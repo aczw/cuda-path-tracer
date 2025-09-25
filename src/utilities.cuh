@@ -12,6 +12,13 @@ class GuiDataContainer {
   int traced_depth;
 };
 
+/// Helper for usage in `cuda::std::visit`. Taken from
+/// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
+template <class... Ts>
+struct Match : Ts... {
+  using Ts::operator()...;
+};
+
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
  */
@@ -26,8 +33,9 @@ __host__ __device__ inline unsigned int generate_hash(unsigned int a) {
   return a;
 }
 
-__host__ __device__ inline thrust::default_random_engine
-make_seeded_random_engine(int iteration, int index, int depth) {
+__host__ __device__ inline thrust::default_random_engine make_seeded_random_engine(int iteration,
+                                                                                   int index,
+                                                                                   int depth) {
   int input = (1 << 31) | (depth << 22) | iteration;
   int seed = generate_hash(input) ^ generate_hash(index);
 

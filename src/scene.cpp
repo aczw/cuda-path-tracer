@@ -20,7 +20,7 @@ Scene::Scene(string filename) {
   cout << " " << endl;
   auto ext = filename.substr(filename.find_last_of('.'));
   if (ext == ".json") {
-    loadFromJSON(filename);
+    load_from_json(filename);
     return;
   } else {
     cout << "Couldn't read from " << filename << endl;
@@ -28,11 +28,11 @@ Scene::Scene(string filename) {
   }
 }
 
-void Scene::loadFromJSON(const std::string& jsonName) {
-  std::ifstream f(jsonName);
+void Scene::load_from_json(const std::string& json_name) {
+  std::ifstream f(json_name);
   json data = json::parse(f);
   const auto& materialsData = data["Materials"];
-  std::unordered_map<std::string, uint32_t> MatNameToID;
+  std::unordered_map<std::string, char> MatNameToID;
   for (const auto& item : materialsData.items()) {
     const auto& name = item.key();
     const auto& p = item.value();

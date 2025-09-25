@@ -1,18 +1,22 @@
 #pragma once
 
+#include "utilities.cuh"
+
+#include <cuda/std/optional>
 #include <cuda/std/variant>
+#include <cuda_runtime.h>
 
 #include <glm/glm.hpp>
 
 struct OutOfBounds {};
 
 struct HitLight {
-  int material_id;
-  float material_emittance;
+  char material_id;
+  float emittance;
 };
 
 struct Intermediate {
-  int material_id;
+  char material_id;
   float t;
   glm::vec3 surface_normal;
 };
@@ -24,9 +28,13 @@ struct Intermediate {
 /// - No intersection occurred because the ray went out of bounds.
 using Intersection = cuda::std::variant<Intermediate, HitLight, OutOfBounds>;
 
-/// Helper for usage in `cuda::std::visit`. Taken from
-/// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
-template <class... Ts>
-struct overloaded : Ts... {
-  using Ts::operator()...;
-};
+/// Returns the material ID from the intersection.
+__host__ __device__ inline cuda::std::optional<char> get_material_id(Intersection isect) {
+  return cuda::std::visit<cuda::std::optional<char>>(
+      Match{
+          [](OutOfBounds) { return cuda::std::nullopt; },
+          [](HitLight light) { return light.material_id; },
+          [](Intermediate intm) { return intm.material_id; },
+      },
+      isect);
+}

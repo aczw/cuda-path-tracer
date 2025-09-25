@@ -182,11 +182,12 @@ __global__ void kern_find_isects(int num_paths,
   if (hit_geometry_index == -1) {
     intersections[path_index] = OutOfBounds{};
   } else {
-    int material_id = geometry_list[hit_geometry_index].material_id;
+    char material_id = geometry_list[hit_geometry_index].material_id;
 
     if (const Material material = material_list[material_id]; material.emittance > 0.f) {
       intersections[path_index] = HitLight{
-          .material_emittance = material.emittance,
+          .material_id = material_id,
+          .emittance = material.emittance,
       };
     } else {
       intersections[path_index] = Intermediate{
@@ -219,7 +220,7 @@ __global__ void kern_shade_fake_material(int num_paths,
   }
 
   cuda::std::visit(
-      overloaded{
+      Match{
           [=](OutOfBounds) {
             // If there was no intersection, color the ray black. Lots of
             // renderers use 4 channel color, RGBA, where A = alpha, often used
@@ -228,7 +229,7 @@ __global__ void kern_shade_fake_material(int num_paths,
             segments[index].throughput = glm::vec3();
           },
 
-          [=](HitLight light) { segments[index].radiance = glm::vec3(light.material_emittance); },
+          [=](HitLight light) { segments[index].radiance = glm::vec3(light.emittance); },
 
           [=](Intermediate intm) {
             Material material = material_list[intm.material_id];
@@ -261,12 +262,11 @@ __global__ void kern_sample(int num_paths,
   }
 
   cuda::std::visit(
-      overloaded{
-          // Should never hit this case because we've stream compacted it away
+      Match{
           [=](OutOfBounds) {},
 
           [=](HitLight light) {
-            segments[index].radiance = light.material_emittance * segments[index].throughput;
+            segments[index].radiance = light.emittance * segments[index].throughput;
           },
 
           [=](Intermediate intm) {
@@ -324,6 +324,12 @@ struct IsNotOutOfBounds {
 struct IsNotLightIsect {
   __host__ __device__ bool operator()(Intersection isect, PathSegment) {
     return !cuda::std::holds_alternative<HitLight>(isect);
+  }
+};
+
+struct SortByMaterialId {
+  __host__ __device__ bool operator()(auto zip_1, auto zip_2) {
+    return get_material_id(thrust::get<0>(zip_1)) < get_material_id(thrust::get<0>(zip_2));
   }
 };
 
@@ -405,6 +411,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     num_paths = thrust::distance(zip_begin, zip_oob_begin);
 
     // TODO(aczw): sort intersections by material_id, make it toggleable via UI
+    thrust::sort(zip_begin, zip_oob_begin, SortByMaterialId{});
 
     const int num_blocks_sample = divide_ceil(num_paths, block_size_128);
     kern_sample<<<num_blocks_sample, block_size_128>>>(
@@ -418,9 +425,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
         thrust::partition(zip_begin, zip_oob_begin, zip_not_light_isect);
     num_paths = thrust::distance(zip_begin, zip_light_begin);
 
-    // TODO(aczw): should be based off of stream compaction results (i.e. all
-    // paths have been stream compacted away)
-    if (curr_depth == max_depth) {
+    if (curr_depth == max_depth || num_paths == 0) {
       break;
     }
 
