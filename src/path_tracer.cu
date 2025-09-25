@@ -96,7 +96,7 @@ void init_data_container(GuiDataContainer* imgui_data) {
 __global__ void kern_gen_rays_from_cam(int num_pixels,
                                        Camera camera,
                                        int curr_iter,
-                                       int trace_depth,
+                                       int max_depth,
                                        PathSegment* path_segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -125,7 +125,7 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
       .radiance = glm::vec3(),
       .throughput = glm::vec3(1.f),
       .pixel_index = index,
-      .remaining_bounces = trace_depth,
+      .remaining_bounces = max_depth,
   };
 }
 
@@ -363,17 +363,16 @@ void PathTracer::free() {
 }
 
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
-  const int trace_depth = hst_scene->state.trace_depth;
+  const int max_depth = hst_scene->state.trace_depth;
   const Camera& camera = hst_scene->state.camera;
   const int geometry_size = hst_scene->geoms.size();
+
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 
   const int block_size_64 = 64;
   const int num_blocks_64 = divide_ceil(num_pixels, block_size_64);
   const int block_size_128 = 128;
   const int num_blocks_128 = divide_ceil(num_pixels, block_size_128);
-
-  const int max_depth = 15;
 
   const thrust::device_ptr<PathSegment> thrust_segments(dev_segments);
   const thrust::device_ptr<Intersection> thrust_intersections(dev_intersections);
@@ -384,8 +383,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const thrust::zip_function zip_not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
 
   // Initialize first batch of path segments
-  kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(num_pixels, camera, curr_iter,
-                                                           trace_depth, dev_segments);
+  kern_gen_rays_from_cam<<<num_blocks_64, block_size_64>>>(num_pixels, camera, curr_iter, max_depth,
+                                                           dev_segments);
   check_cuda_error("kern_gen_rays_from_cam");
 
   int curr_depth = 0;

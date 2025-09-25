@@ -7,6 +7,7 @@
 struct OutOfBounds {};
 
 struct HitLight {
+  int material_id;
   float material_emittance;
 };
 
