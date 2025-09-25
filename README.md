@@ -17,7 +17,7 @@ CUDA Path Tracer
 ## Program structure
 
 - Path tracer is run for a certain number of iterations. This is determined by the scene file we're currently running
-- Each iteration, represented by one call to `path_tracer::run`, first generates the initial set of rays coming out of the camera
+- Each iteration, represented by one call to `PathTracer::run_iteration`, first generates the initial set of rays coming out of the camera
 - Then we enter a loop that does the following:
   - Using the calculated rays, compute potential intersections with the scene
   - Stream compaction away dead paths, i.e. paths that did not intersect with anything or went out of bounds
@@ -47,9 +47,49 @@ Then, the overall throughput contribution for this intersection is given by `bsd
 
 5000 iterations.
 
-### Discarding out of bounds intersections
+### Discarding paths
 
 TODO(aczw): use difference as metric to measure how effective sampling methods are?
+
+#### Modeling intersections
+
+We should not perform work on paths that may have already completed. This can occur in two ways: the path has intersected with a light, and the path has traveled out of bounds. The third possibility, of course, is that the path has not finished traveling. It can be considered an "intermediate." 
+
+These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[^2] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
+
+```cpp
+struct OutOfBounds {};
+struct HitLight { /* Data members here */ };
+struct Intermediate { /* Data members here */ };
+
+using Intersection = cuda::std::variant<Intermediate, HitLight, OutOfBounds>;
+```
+
+See [`src/intersection.cuh`](src/intersection.cuh).
+
+If the ray went out of bounds, we don't need to store any information. However, the data we need when we've intersected with a light is different from when we're still traveling through the scene. This structure allows me to expose different data depending on what *type* the intersection is.
+
+#### Partitioning the paths
+
+I use this to essentially *discard* paths we don't need to perform additional computations on by partitioning the buffer, separating paths that are still "active" and those that aren't. I currently do this in two phases:
+
+- Discarding paths that went out of bounds (OOB)
+- Discarding paths that have intersected with a light
+
+The benefits are twofold: I've rearranged the active paths such that they're now contiguous in the buffer. This also allows me to dynamically adjust the number of blocks I need when configuring the launch parameters for my intersection and shading kernels.
+
+- For scenes that are less bounded by walls and have more open space, discarding OOB rays improves performance by a lot.
+- Similarly, scenes that may contain a large number of lights will benefit from the ray light intersection discarding step.
+
+TODO(aczw): comparison graphs, create scenes that demonstrate this LOL
+
+### Sorting paths by intersection material
+
+Another optimization I made is to keep paths that intersected the same material contiguous in the buffer. I reference the material at an intersection via a `material_id`, so I could simply use `thrust::sort` to perform this action.
+
+The reason for this change is to reduce random accesses into the global material list within a warp. By grouping these paths together, they all benefit from the potential caching benefits of accessing the same material over and over.
+
+TODO(aczw): prove this
 
 ## Building
 
@@ -57,5 +97,7 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 
 - Moved the `include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")` call out of the `if(UNIX)` branch to make it available on Windows as well
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
+- Updated to C++20.
 
 [^1]: This `lambert` term should not to be confused with the Lambertian diffuse model. It's part of the overall light transport equation and must be computed for all materials.
+[^2]: Technically, I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.
