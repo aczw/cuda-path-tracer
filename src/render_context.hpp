@@ -38,6 +38,4 @@ class RenderContext {
   InputBundle input;
   float zoom, theta, phi;
   double last_cursor_x, last_cursor_y;
-
-  ImGuiIO* io;
 };

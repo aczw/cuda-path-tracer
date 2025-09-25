@@ -19,7 +19,7 @@ std::string get_current_time() {
 
 }  // namespace
 
-RenderContext::RenderContext() : start_time(get_current_time()), curr_iteration(0), io(nullptr) {}
+RenderContext::RenderContext() : start_time(get_current_time()), curr_iteration(0) {}
 
 bool RenderContext::try_open_scene(std::string_view scene_file) {
   std::cout << std::format("[Scene] Opening \"{}\"...", scene_file) << std::endl;

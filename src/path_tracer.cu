@@ -299,7 +299,7 @@ void PathTracer::free() {
 }
 
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
-    const int max_depth = ctx->settings.max_depth;
+  const int max_depth = ctx->settings.max_depth;
 
   const Scene& scene = ctx->scene;
   const Camera& camera = scene.camera;

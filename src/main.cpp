@@ -109,7 +109,6 @@ bool initialize_components(RenderContext* ctx, GLFWwindow* window) {
   ImGui::StyleColorsLight();
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 120");
-  ctx->io = &ImGui::GetIO();
 
   int width = ctx->get_width();
   int height = ctx->get_height();
