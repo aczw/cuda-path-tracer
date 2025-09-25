@@ -11,12 +11,12 @@ Image::~Image() {
   delete pixels;
 }
 
-void Image::setPixel(int x, int y, const glm::vec3& pixel) {
+void Image::set_pixel(int x, int y, const glm::vec3& pixel) {
   assert(x >= 0 && y >= 0 && x < xSize && y < ySize);
   pixels[(y * xSize) + x] = pixel;
 }
 
-void Image::savePNG(const std::string& baseFilename) {
+void Image::save_as_png(const std::string& file_name) {
   unsigned char* bytes = new unsigned char[3 * xSize * ySize];
   for (int y = 0; y < ySize; y++) {
     for (int x = 0; x < xSize; x++) {
@@ -28,15 +28,15 @@ void Image::savePNG(const std::string& baseFilename) {
     }
   }
 
-  std::string filename = baseFilename + ".png";
+  std::string filename = file_name + ".png";
   stbi_write_png(filename.c_str(), xSize, ySize, 3, bytes, xSize * 3);
-  std::cout << "Saved " << filename << "." << std::endl;
+  std::cout << "Saved as " << filename << "." << std::endl;
 
   delete[] bytes;
 }
 
-void Image::saveHDR(const std::string& baseFilename) {
-  std::string filename = baseFilename + ".hdr";
+void Image::save_as_hdr(const std::string& file_name) {
+  std::string filename = file_name + ".hdr";
   stbi_write_hdr(filename.c_str(), xSize, ySize, 3, (const float*)pixels);
-  std::cout << "Saved " + filename + "." << std::endl;
+  std::cout << "Saved as " + filename + "." << std::endl;
 }

@@ -381,8 +381,9 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
         thrust::partition(zip_begin, zip_begin + num_paths, zip_not_oob);
     num_paths = thrust::distance(zip_begin, zip_oob_begin);
 
-    // TODO(aczw): sort intersections by material_id, make it toggleable via UI
-    thrust::sort(zip_begin, zip_oob_begin, SortByMaterialId{});
+    if (gui_data->sort_paths_by_material) {
+      thrust::sort(zip_begin, zip_oob_begin, SortByMaterialId{});
+    }
 
     const int num_blocks_sample = divide_ceil(num_paths, block_size_128);
     kern_sample<<<num_blocks_sample, block_size_128>>>(

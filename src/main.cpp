@@ -51,9 +51,8 @@ int height;
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
-GLuint displayImage;
+GLuint display_image;
 
-GLFWwindow* window;
 ImGuiIO* io = nullptr;
 bool is_mouse_over_imgui = false;
 
@@ -72,8 +71,8 @@ std::string get_current_time() {
 }
 
 void initTextures() {
-  glGenTextures(1, &displayImage);
-  glBindTexture(GL_TEXTURE_2D, displayImage);
+  glGenTextures(1, &display_image);
+  glBindTexture(GL_TEXTURE_2D, display_image);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
@@ -139,8 +138,8 @@ void cleanupCuda() {
   if (pbo) {
     deletePBO(&pbo);
   }
-  if (displayImage) {
-    deleteTexture(&displayImage);
+  if (display_image) {
+    deleteTexture(&display_image);
   }
 }
 
@@ -173,17 +172,18 @@ void error_callback(int error, const char* description) {
 }
 
 /// Initialize CUDA and GL components.
-void initialize_components(Scene* scene) {
+GLFWwindow* initialize_components(Scene* scene) {
   glfwSetErrorCallback(error_callback);
 
   if (!glfwInit()) {
     exit(EXIT_FAILURE);
   }
 
-  window = glfwCreateWindow(width, height, "CUDA Path Tracer", nullptr, nullptr);
+  GLFWwindow* window = glfwCreateWindow(width, height, "CUDA Path Tracer", nullptr, nullptr);
 
   if (!window) {
     glfwTerminate();
+    exit(EXIT_FAILURE);
   }
 
   glfwMakeContextCurrent(window);
@@ -220,9 +220,11 @@ void initialize_components(Scene* scene) {
   GLuint passthrough_prog = initShader();
   glUseProgram(passthrough_prog);
   glActiveTexture(GL_TEXTURE0);
+
+  return window;
 }
 
-void free_components() {
+void free_components(GLFWwindow* window) {
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
@@ -238,40 +240,38 @@ void render_gui(GuiData* gui_data) {
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  bool show_demo_window = true;
-  bool show_another_window = false;
-  ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-  static float f = 0.0f;
-  static int counter = 0;
+  ImGui::Begin("Info & Configuration");
+  {
+    ImGui::Text("Depth: %d", gui_data->max_depth);
 
-  ImGui::Begin("Path Tracer Analytics");  // Create a window called "Hello,
-                                          // world!" and append into it.
+    float fps = io->Framerate;
+    ImGui::Text("FPS: %.2f (%.2f ms)", fps, 1000.0f / fps);
 
-  // LOOK: Un-Comment to check the output window and usage
-  // ImGui::Text("This is some useful text.");               // Display some
-  // text (you can use a format strings too) ImGui::Checkbox("Demo Window",
-  // &show_demo_window);      // Edit bools storing our window open/close state
+    ImGui::Separator();
+
+    ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
+  }
+  ImGui::End();
+
+  // ImGui::Text("This is some useful text.");
+  // ImGui::Checkbox("Demo Window", &show_demo_window);
   // ImGui::Checkbox("Another Window", &show_another_window);
 
-  // ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float
-  // using a slider from 0.0f to 1.0f ImGui::ColorEdit3("clear color",
-  // (float*)&clear_color); // Edit 3 floats representing a color
+  // ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
+  // ImGui::ColorEdit3("clear color", (float*)&clear_color);
 
-  // if (ImGui::Button("Button"))                            // Buttons return
-  // true when clicked (most widgets return true when edited/activated)
-  //     counter++;
+  // if (ImGui::Button("Button")) {
+  //   counter++;
+  // }
+
   // ImGui::SameLine();
   // ImGui::Text("counter = %d", counter);
-  ImGui::Text("Traced Depth %d", gui_data->max_depth);
-  ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-              ImGui::GetIO().Framerate);
-  ImGui::End();
 
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void saveImage() {
+void save_image() {
   float num_samples = curr_iteration;
   // output image file
   Image image(width, height);
@@ -280,16 +280,17 @@ void saveImage() {
     for (int y = 0; y < height; y++) {
       int index = x + (y * width);
       glm::vec3 pix = render_state->image[index];
-      image.setPixel(width - 1 - x, y, glm::vec3(pix) / num_samples);
+      image.set_pixel(width - 1 - x, y, glm::vec3(pix) / num_samples);
     }
   }
 
-  std::string file_name = std::format("{}_{}_{}samples", file_name, start_time, num_samples);
-  image.savePNG(file_name);
+  std::string file_name =
+      std::format("{}_{}_{}samples", render_state->image_name, start_time, num_samples);
+  image.save_as_png(file_name);
   // img.saveHDR(filename);
 }
 
-void run_main_loop(GuiData* gui_data, Scene* scene) {
+void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
   Camera& camera = render_state->camera;
   std::array<char, 10> iter_str;
 
@@ -301,9 +302,9 @@ void run_main_loop(GuiData* gui_data, Scene* scene) {
     if (camera_changed) {
       curr_iteration = 0;
 
-      camera_position.x = zoom * sin(phi) * sin(theta);
-      camera_position.y = zoom * cos(theta);
-      camera_position.z = zoom * cos(phi) * sin(theta);
+      camera_position.x = zoom * std::sin(phi) * std::sin(theta);
+      camera_position.y = zoom * std::cos(theta);
+      camera_position.z = zoom * std::cos(phi) * std::sin(theta);
 
       camera.view = -glm::normalize(camera_position);
       glm::vec3 v = camera.view;
@@ -312,7 +313,6 @@ void run_main_loop(GuiData* gui_data, Scene* scene) {
       camera.up = glm::cross(r, v);
       camera.right = r;
 
-      camera.position = camera_position;
       camera_position += camera.look_at;
       camera.position = camera_position;
 
@@ -325,22 +325,22 @@ void run_main_loop(GuiData* gui_data, Scene* scene) {
     }
 
     if (curr_iteration < render_state->total_iterations) {
-      uchar4* pbo_dptr = NULL;
+      uchar4* pbo_dptr = nullptr;
       curr_iteration++;
 
-      // Map OpenGL buffer object for writing from CUDA on a single GPU
-      // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not
-      // use this buffer
+      // Map OpenGL buffer object for writing from CUDA on a single GPU.
+      // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
       cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
 
       path_tracer.run_iteration(pbo_dptr, curr_iteration);
 
-      // unmap buffer object
+      // Unmap buffer object
       cudaGLUnmapBufferObject(pbo);
     } else {
-      saveImage();
+      save_image();
       path_tracer.free();
       cudaDeviceReset();
+
       exit(EXIT_SUCCESS);
     }
 
@@ -348,8 +348,8 @@ void run_main_loop(GuiData* gui_data, Scene* scene) {
     glfwSetWindowTitle(window, title.c_str());
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
-    glBindTexture(GL_TEXTURE_2D, displayImage);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glBindTexture(GL_TEXTURE_2D, display_image);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
     glClear(GL_COLOR_BUFFER_BIT);
 
     // Binding GL_PIXEL_UNPACK_BUFFER back to default
@@ -376,7 +376,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
       break;
 
     case GLFW_KEY_S:
-      saveImage();
+      save_image();
       break;
 
     case GLFW_KEY_SPACE:
@@ -443,6 +443,7 @@ int main(int argc, char* argv[]) {
   std::unique_ptr scene = std::make_unique<Scene>(argv[1]);
   std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
       .max_depth = scene->state.trace_depth,
+      .sort_paths_by_material = true,
   });
 
   // Set up camera stuff from loaded path tracer settings
@@ -468,9 +469,9 @@ int main(int argc, char* argv[]) {
   ogLookAt = cam.look_at;
   zoom = glm::length(cam.position - ogLookAt);
 
-  initialize_components(scene.get());
-  run_main_loop(gui_data.get(), scene.get());
-  free_components();
+  GLFWwindow* window = initialize_components(scene.get());
+  loop(window, gui_data.get(), scene.get());
+  free_components(window);
 
   return EXIT_SUCCESS;
 }
