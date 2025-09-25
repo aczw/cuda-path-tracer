@@ -2,6 +2,7 @@
 #include "ImGui/imgui_impl_glfw.h"
 #include "ImGui/imgui_impl_opengl3.h"
 #include "glslUtility.hpp"
+#include "gui_data.hpp"
 #include "image.h"
 #include "path_tracer.h"
 #include "scene.h"
@@ -41,7 +42,7 @@ glm::vec3 camera_position;
 glm::vec3 ogLookAt;  // for recentering the camera
 
 Scene* scene;
-GuiDataContainer* gui_data;
+GuiData* gui_data;
 RenderState* render_state;
 int curr_iteration;
 
@@ -54,14 +55,14 @@ GLuint pbo;
 GLuint displayImage;
 
 GLFWwindow* window;
-GuiDataContainer* imguiData = NULL;
+GuiData* imguiData = NULL;
 ImGuiIO* io = nullptr;
-bool mouseOverImGuiWinow = false;
+bool is_mouse_over_imgui = false;
 
 // Forward declarations for window loop and interactivity
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void mousePositionCallback(GLFWwindow* window, double xpos, double ypos);
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 
 std::string get_current_time() {
   time_t now;
@@ -186,9 +187,9 @@ bool init() {
     return false;
   }
   glfwMakeContextCurrent(window);
-  glfwSetKeyCallback(window, keyCallback);
-  glfwSetCursorPosCallback(window, mousePositionCallback);
-  glfwSetMouseButtonCallback(window, mouseButtonCallback);
+  glfwSetKeyCallback(window, key_callback);
+  glfwSetCursorPosCallback(window, mouse_pos_callback);
+  glfwSetMouseButtonCallback(window, mouse_button_callback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -217,13 +218,13 @@ bool init() {
   return true;
 }
 
-void InitImguiData(GuiDataContainer* gui_data) {
+void InitImguiData(GuiData* gui_data) {
   imguiData = gui_data;
 }
 
 // LOOK: Un-Comment to check ImGui Usage
 void RenderImGui() {
-  mouseOverImGuiWinow = io->WantCaptureMouse;
+  is_mouse_over_imgui = io->WantCaptureMouse;
 
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
@@ -262,10 +263,6 @@ void RenderImGui() {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-bool MouseOverImGuiWindow() {
-  return mouseOverImGuiWinow;
-}
-
 void saveImage() {
   float samples = curr_iteration;
   // output image file
@@ -284,7 +281,6 @@ void saveImage() {
   ss << filename << "." << start_time << "." << samples << "samp";
   filename = ss.str();
 
-  // CHECKITOUT
   img.savePNG(filename);
   // img.saveHDR(filename);  // Save a Radiance HDR file
 }
@@ -372,7 +368,7 @@ void run_main_loop() {
   glfwTerminate();
 }
 
-void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
   if (action == GLFW_PRESS) {
     switch (key) {
       case GLFW_KEY_ESCAPE:
@@ -392,8 +388,8 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
   }
 }
 
-void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
-  if (MouseOverImGuiWindow()) {
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
+  if (is_mouse_over_imgui) {
     return;
   }
 
@@ -402,9 +398,10 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
   middleMousePressed = (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
 }
 
-void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
+void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
   if (xpos == lastX || ypos == lastY) {
-    return;  // otherwise, clicking back into window causes re-start
+    // Otherwise, clicking back into window causes re-start
+    return;
   }
 
   if (leftMousePressed) {
@@ -450,7 +447,7 @@ int main(int argc, char* argv[]) {
   scene = new Scene(sceneFile);
 
   // Create Instance for ImGUIData
-  gui_data = new GuiDataContainer();
+  gui_data = new GuiData();
 
   // Set up camera stuff from loaded path tracer settings
   curr_iteration = 0;

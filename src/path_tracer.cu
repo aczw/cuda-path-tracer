@@ -72,7 +72,7 @@ __global__ void kern_send_to_pbo(int num_pixels, uchar4* pbo, int curr_iter, glm
 // TODO(aczw): convert to thrust::device_ptr? would need to use
 // thrust::raw_pointer_cast when submitting these to kernels
 static Scene* hst_scene = nullptr;
-static GuiDataContainer* gui_data = nullptr;
+static GuiData* gui_data = nullptr;
 static glm::vec3* dev_image = nullptr;
 
 static Geometry* dev_geometry_list = nullptr;
@@ -81,7 +81,7 @@ static Material* dev_material_list = nullptr;
 static PathSegment* dev_segments = nullptr;
 static Intersection* dev_intersections = nullptr;
 
-void init_data_container(GuiDataContainer* imgui_data) {
+void init_data_container(GuiData* imgui_data) {
   gui_data = imgui_data;
 }
 
@@ -344,13 +344,13 @@ void PathTracer::initialize(Scene* scene) {
 
   cudaMalloc(&dev_segments, pixel_count * sizeof(PathSegment));
 
-  cudaMalloc(&dev_geometry_list, scene->geoms.size() * sizeof(Geometry));
-  cudaMemcpy(dev_geometry_list, scene->geoms.data(), scene->geoms.size() * sizeof(Geometry),
-             cudaMemcpyHostToDevice);
+  cudaMalloc(&dev_geometry_list, scene->geometry_list.size() * sizeof(Geometry));
+  cudaMemcpy(dev_geometry_list, scene->geometry_list.data(),
+             scene->geometry_list.size() * sizeof(Geometry), cudaMemcpyHostToDevice);
 
-  cudaMalloc(&dev_material_list, scene->materials.size() * sizeof(Material));
-  cudaMemcpy(dev_material_list, scene->materials.data(), scene->materials.size() * sizeof(Material),
-             cudaMemcpyHostToDevice);
+  cudaMalloc(&dev_material_list, scene->material_list.size() * sizeof(Material));
+  cudaMemcpy(dev_material_list, scene->material_list.data(),
+             scene->material_list.size() * sizeof(Material), cudaMemcpyHostToDevice);
 
   cudaMalloc(&dev_intersections, pixel_count * sizeof(Intersection));
 
@@ -371,7 +371,7 @@ void PathTracer::free() {
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const int max_depth = hst_scene->state.trace_depth;
   const Camera& camera = hst_scene->state.camera;
-  const int geometry_size = hst_scene->geoms.size();
+  const int geometry_size = hst_scene->geometry_list.size();
 
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 

@@ -5,13 +5,6 @@
 
 #define EPSILON 0.00001f
 
-class GuiDataContainer {
- public:
-  GuiDataContainer() : traced_depth(0) {}
-
-  int traced_depth;
-};
-
 /// Helper for usage in `cuda::std::visit`. Taken from
 /// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
 template <class... Ts>

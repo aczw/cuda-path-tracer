@@ -1,11 +1,12 @@
 #pragma once
 
+#include "gui_data.hpp"
 #include "scene.h"
 #include "utilities.cuh"
 
 #include <glm/glm.hpp>
 
-void init_data_container(GuiDataContainer* gui_data);
+void init_data_container(GuiData* gui_data);
 
 struct PathTracer {
   void initialize(Scene* scene);

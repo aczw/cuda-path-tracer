@@ -87,9 +87,13 @@ TODO(aczw): comparison graphs, create scenes that demonstrate this LOL
 
 Another optimization I made is to keep paths that intersected the same material contiguous in the buffer. I reference the material at an intersection via a `material_id`, so I could simply use `thrust::sort` to perform this action.
 
-The reason for this change is to reduce random accesses into the global material list within a warp. By grouping these paths together, they all benefit from the potential caching benefits of accessing the same material over and over.
+The reason for this change is to reduce random accesses into the global material list within a warp. By grouping these paths together, they all benefit from the potential caching benefits of accessing the same material over and over. The more materials in the scene, the more pronounced this effect will be.
 
 TODO(aczw): prove this
+
+## Credits
+
+- Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
 
 ## Building
 
