@@ -103,5 +103,11 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
 - Updated to C++20.
 
+### Testing
+
+Some other stuff I've changed that should probably be pointed out:
+
+- Pressing Esc does not save an image anymore. Pressing S still does this.
+
 [^1]: This `lambert` term should not to be confused with the Lambertian diffuse model. It's part of the overall light transport equation and must be computed for all materials.
 [^2]: Technically, I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.

@@ -42,8 +42,6 @@ float zoom, theta, phi;
 glm::vec3 camera_position;
 glm::vec3 ogLookAt;  // for recentering the camera
 
-Scene* scene;
-GuiData* gui_data;
 RenderState* render_state;
 int curr_iteration;
 
@@ -170,33 +168,41 @@ void initPBO() {
   cudaGLRegisterBufferObject(pbo);
 }
 
-void errorCallback(int error, const char* description) {
-  fprintf(stderr, "%s\n", description);
+void error_callback(int error, const char* description) {
+  std::cerr << std::format("{}", description) << std::endl;
 }
 
-bool init() {
-  glfwSetErrorCallback(errorCallback);
+/// Initialize CUDA and GL components.
+void initialize_components(Scene* scene) {
+  glfwSetErrorCallback(error_callback);
 
   if (!glfwInit()) {
     exit(EXIT_FAILURE);
   }
 
-  window = glfwCreateWindow(width, height, "CUDA Path Tracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CUDA Path Tracer", nullptr, nullptr);
+
   if (!window) {
     glfwTerminate();
-    return false;
   }
+
   glfwMakeContextCurrent(window);
+  glfwSetWindowUserPointer(window, static_cast<void*>(scene));
+
   glfwSetKeyCallback(window, key_callback);
   glfwSetCursorPosCallback(window, mouse_pos_callback);
   glfwSetMouseButtonCallback(window, mouse_button_callback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
+
   if (glewInit() != GLEW_OK) {
-    return false;
+    glfwTerminate();
+    exit(EXIT_FAILURE);
   }
-  printf("OpenGL version: %s\n", glGetString(GL_VERSION));
+
+  std::cout << std::format("OpenGL version: {}\n",
+                           reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -210,15 +216,22 @@ bool init() {
   initTextures();
   initCuda();
   initPBO();
-  GLuint passthroughProgram = initShader();
 
-  glUseProgram(passthroughProgram);
+  GLuint passthrough_prog = initShader();
+  glUseProgram(passthrough_prog);
   glActiveTexture(GL_TEXTURE0);
-
-  return true;
 }
 
-void render_imgui(GuiData* gui_data) {
+void free_components() {
+  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplGlfw_Shutdown();
+  ImGui::DestroyContext();
+
+  glfwDestroyWindow(window);
+  glfwTerminate();
+}
+
+void render_gui(GuiData* gui_data) {
   is_mouse_over_imgui = io->WantCaptureMouse;
 
   ImGui_ImplOpenGL3_NewFrame();
@@ -259,32 +272,28 @@ void render_imgui(GuiData* gui_data) {
 }
 
 void saveImage() {
-  float samples = curr_iteration;
+  float num_samples = curr_iteration;
   // output image file
-  Image img(width, height);
+  Image image(width, height);
 
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int index = x + (y * width);
       glm::vec3 pix = render_state->image[index];
-      img.setPixel(width - 1 - x, y, glm::vec3(pix) / samples);
+      image.setPixel(width - 1 - x, y, glm::vec3(pix) / num_samples);
     }
   }
 
-  std::string filename = render_state->image_name;
-  std::ostringstream ss;
-  ss << filename << "." << start_time << "." << samples << "samp";
-  filename = ss.str();
-
-  img.savePNG(filename);
-  // img.saveHDR(filename);  // Save a Radiance HDR file
+  std::string file_name = std::format("{}_{}_{}samples", file_name, start_time, num_samples);
+  image.savePNG(file_name);
+  // img.saveHDR(filename);
 }
 
-void run_main_loop(GuiData* gui_data) {
+void run_main_loop(GuiData* gui_data, Scene* scene) {
   Camera& camera = render_state->camera;
-
   std::array<char, 10> iter_str;
-  PathTracer path_tracer(gui_data);
+
+  PathTracer path_tracer(gui_data, scene);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -305,23 +314,23 @@ void run_main_loop(GuiData* gui_data) {
 
       camera.position = camera_position;
       camera_position += camera.look_at;
-
       camera.position = camera_position;
+
       camera_changed = false;
     }
 
-    // Map OpenGL buffer object for writing from CUDA on a single GPU
-    // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not
-    // use this buffer
-
     if (curr_iteration == 0) {
       path_tracer.free();
-      path_tracer.initialize(scene);
+      path_tracer.initialize();
     }
 
     if (curr_iteration < render_state->total_iterations) {
       uchar4* pbo_dptr = NULL;
       curr_iteration++;
+
+      // Map OpenGL buffer object for writing from CUDA on a single GPU
+      // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not
+      // use this buffer
       cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
 
       path_tracer.run_iteration(pbo_dptr, curr_iteration);
@@ -350,36 +359,31 @@ void run_main_loop(GuiData* gui_data) {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
     // Render ImGui Stuff
-    render_imgui(gui_data);
+    render_gui(gui_data);
 
     glfwSwapBuffers(window);
   }
-
-  ImGui_ImplOpenGL3_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
-
-  glfwDestroyWindow(window);
-  glfwTerminate();
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  if (action == GLFW_PRESS) {
-    switch (key) {
-      case GLFW_KEY_ESCAPE:
-        saveImage();
-        glfwSetWindowShouldClose(window, GL_TRUE);
-        break;
-      case GLFW_KEY_S:
-        saveImage();
-        break;
-      case GLFW_KEY_SPACE:
-        camera_changed = true;
-        render_state = &scene->state;
-        Camera& cam = render_state->camera;
-        cam.look_at = ogLookAt;
-        break;
-    }
+  if (action != GLFW_PRESS) {
+    return;
+  }
+
+  switch (key) {
+    case GLFW_KEY_ESCAPE:
+      glfwSetWindowShouldClose(window, GL_TRUE);
+      break;
+
+    case GLFW_KEY_S:
+      saveImage();
+      break;
+
+    case GLFW_KEY_SPACE:
+      camera_changed = true;
+      render_state = &(static_cast<Scene*>(glfwGetWindowUserPointer(window))->state);
+      render_state->camera.look_at = ogLookAt;
+      break;
   }
 }
 
@@ -410,7 +414,7 @@ void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
     zoom = std::fmax(0.1f, zoom);
     camera_changed = true;
   } else if (middleMousePressed) {
-    render_state = &scene->state;
+    render_state = &(static_cast<Scene*>(glfwGetWindowUserPointer(window))->state);
     Camera& cam = render_state->camera;
     glm::vec3 forward = cam.view;
     forward.y = 0.0f;
@@ -432,15 +436,11 @@ int main(int argc, char* argv[]) {
   start_time = get_current_time();
 
   if (argc < 2) {
-    printf("Usage: %s SCENEFILE.json\n", argv[0]);
-    return 1;
+    std::cerr << std::format("Usage: {} <scene_file.json>", argv[0]) << std::endl;
+    return EXIT_FAILURE;
   }
 
-  const char* sceneFile = argv[1];
-
-  // Load scene file
-  scene = new Scene(sceneFile);
-
+  std::unique_ptr scene = std::make_unique<Scene>(argv[1]);
   std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
       .max_depth = scene->state.trace_depth,
   });
@@ -468,9 +468,9 @@ int main(int argc, char* argv[]) {
   ogLookAt = cam.look_at;
   zoom = glm::length(cam.position - ogLookAt);
 
-  // Initialize CUDA and GL components
-  init();
-  run_main_loop(gui_data.get());
+  initialize_components(scene.get());
+  run_main_loop(gui_data.get(), scene.get());
+  free_components();
 
   return EXIT_SUCCESS;
 }

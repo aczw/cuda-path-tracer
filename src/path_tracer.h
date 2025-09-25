@@ -8,9 +8,9 @@
 
 class PathTracer {
  public:
-  explicit PathTracer(GuiData* gui_data);
+  explicit PathTracer(GuiData* gui_data, Scene* scene);
 
-  void initialize(Scene* scene);
+  void initialize();
   void free();
 
   /**
@@ -21,4 +21,5 @@ class PathTracer {
 
  private:
   GuiData* gui_data;
+  Scene* scene;
 };

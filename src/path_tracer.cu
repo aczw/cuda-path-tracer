@@ -34,12 +34,13 @@ void check_cuda_error_function(const char* msg, const char* file, int line) {
     return;
   }
 
-  fprintf(stderr, "CUDA error");
+  std::cerr << "CUDA error";
 
   if (file) {
-    fprintf(stderr, " (%s:%d)", file, line);
+    std::cerr << std::format(" ({}:{})", file, line);
   }
-  fprintf(stderr, ": %s: %s\n", msg, cudaGetErrorString(err));
+
+  std::cerr << std::format(": {}: {}", msg, cudaGetErrorString(err)) << std::endl;
 #ifdef _WIN32
   getchar();
 #endif  // _WIN32
@@ -71,7 +72,6 @@ __global__ void kern_send_to_pbo(int num_pixels, uchar4* pbo, int curr_iter, glm
 
 // TODO(aczw): convert to thrust::device_ptr? would need to use
 // thrust::raw_pointer_cast when submitting these to kernels
-static Scene* hst_scene = nullptr;
 static glm::vec3* dev_image = nullptr;
 
 static Geometry* dev_geometry_list = nullptr;
@@ -328,12 +328,12 @@ struct SortByMaterialId {
   }
 };
 
-PathTracer::PathTracer(GuiData* gui_data) : gui_data(gui_data) {}
+PathTracer::PathTracer(GuiData* gui_data, Scene* scene) : gui_data(gui_data), scene(scene) {}
 
-void PathTracer::initialize(Scene* scene) {
-  hst_scene = scene;
+void PathTracer::initialize() {
+  scene = scene;
 
-  const Camera& cam = hst_scene->state.camera;
+  const Camera& cam = scene->state.camera;
   const int pixel_count = cam.resolution.x * cam.resolution.y;
 
   cudaMalloc(&dev_image, pixel_count * sizeof(glm::vec3));
@@ -366,9 +366,9 @@ void PathTracer::free() {
 }
 
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
-  const int max_depth = hst_scene->state.trace_depth;
-  const Camera& camera = hst_scene->state.camera;
-  const int geometry_size = hst_scene->geometry_list.size();
+  const int max_depth = scene->state.trace_depth;
+  const Camera& camera = scene->state.camera;
+  const int geometry_size = scene->geometry_list.size();
 
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 
@@ -436,7 +436,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   kern_send_to_pbo<<<num_blocks_64, block_size_64>>>(num_pixels, pbo, curr_iter, dev_image);
 
   // Retrieve image from GPU
-  cudaMemcpy(hst_scene->state.image.data(), dev_image, num_pixels * sizeof(glm::vec3),
+  cudaMemcpy(scene->state.image.data(), dev_image, num_pixels * sizeof(glm::vec3),
              cudaMemcpyDeviceToHost);
 
   check_cuda_error("PathTracer::run");
