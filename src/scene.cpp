@@ -1,4 +1,4 @@
-#include "scene.h"
+#include "scene.hpp"
 
 #include "json.hpp"
 #include "utilities.cuh"
@@ -12,29 +12,13 @@
 #include <string>
 #include <unordered_map>
 
-using json = nlohmann::json;
+Settings Scene::load_from_json(std::string_view scene_file) {
+  std::ifstream stream(scene_file.data());
+  nlohmann::json root = nlohmann::json::parse(stream);
 
-Scene::Scene(std::string file_name) {
-  std::cout << "Reading scene \"" << file_name << "\"" << std::endl;
-
-  std::string extension = file_name.substr(file_name.find_last_of('.'));
-
-  if (extension == ".json") {
-    load_from_json(file_name);
-    return;
-  } else {
-    std::cout << "\"" << file_name << "\" is an invalid scene, not a JSON file" << std::endl;
-    exit(EXIT_FAILURE);
-  }
-}
-
-void Scene::load_from_json(const std::string& json_name) {
-  std::ifstream f(json_name);
-  json data = json::parse(f);
-
-  const auto& materials_data = data["Materials"];
   std::unordered_map<std::string, char> material_name_to_id;
 
+  const auto& materials_data = root["Materials"];
   for (const auto& item : materials_data.items()) {
     const auto& name = item.key();
     const auto& object = item.value();
@@ -57,7 +41,7 @@ void Scene::load_from_json(const std::string& json_name) {
     material_list.emplace_back(new_material);
   }
 
-  const auto& objects_data = data["Objects"];
+  const auto& objects_data = root["Objects"];
   for (const auto& object : objects_data) {
     Geometry new_geometry;
     new_geometry.material_id = material_name_to_id[object["MATERIAL"]];
@@ -91,34 +75,34 @@ void Scene::load_from_json(const std::string& json_name) {
     geometry_list.push_back(new_geometry);
   }
 
-  const auto& camera_data = data["Camera"];
-  Camera& camera = state.camera;
-  RenderState& state = this->state;
+  const auto& camera_data = root["Camera"];
+  camera.resolution = glm::ivec2(camera_data["RES"][0], camera_data["RES"][1]);
 
-  camera.resolution.x = camera_data["RES"][0];
-  camera.resolution.y = camera_data["RES"][1];
-  float fovy = camera_data["FOVY"];
-  state.total_iterations = camera_data["ITERATIONS"];
-  state.trace_depth = camera_data["DEPTH"];
-  state.image_name = camera_data["FILE"];
   const auto& pos = camera_data["EYE"];
-  const auto& lookat = camera_data["LOOKAT"];
-  const auto& up = camera_data["UP"];
   camera.position = glm::vec3(pos[0], pos[1], pos[2]);
+
+  const auto& lookat = camera_data["LOOKAT"];
   camera.look_at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+
+  const auto& up = camera_data["UP"];
   camera.up = glm::vec3(up[0], up[1], up[2]);
 
-  // Calculate FOV based on resolution
-  float y_scaled = tan(fovy * (std::numbers::pi / 180));
-  float x_scaled = (y_scaled * camera.resolution.x) / camera.resolution.y;
-  float fovx = (atan(x_scaled) * 180) / std::numbers::pi;
-  camera.fov = glm::vec2(fovx, fovy);
+  camera.view = glm::normalize(camera.look_at - camera.position);
   camera.right = glm::normalize(glm::cross(camera.view, camera.up));
+
+  // Calculate FOV based on resolution
+  float fov_y = camera_data["FOVY"];
+  float y_scaled = tan(fov_y * (std::numbers::pi / 180));
+  float x_scaled = (y_scaled * camera.resolution.x) / camera.resolution.y;
+  float fov_x = (atan(x_scaled) * 180) / std::numbers::pi;
+  camera.fov = glm::vec2(fov_x, fov_y);
   camera.pixel_length = glm::vec2(2 * x_scaled / static_cast<float>(camera.resolution.x),
                                   2 * y_scaled / static_cast<float>(camera.resolution.y));
-  camera.view = glm::normalize(camera.look_at - camera.position);
 
-  // Set up render camera stuff
-  state.image.resize(camera.resolution.x * camera.resolution.y);
-  std::fill(state.image.begin(), state.image.end(), glm::vec3());
-}
+  return {
+      .max_iterations = camera_data["ITERATIONS"],
+      .max_depth = camera_data["DEPTH"],
+      .original_camera = camera,
+      .output_image_name = camera_data["FILE"],
+  };
+};

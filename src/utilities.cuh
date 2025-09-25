@@ -12,7 +12,7 @@
 constexpr bool CHECK_ERRORS = true;
 
 inline void check_cuda_error(const char* message,
-                             std::source_location src_loc = std::source_location::current()) {
+                             std::source_location loc = std::source_location::current()) {
   if constexpr (CHECK_ERRORS) {
     cudaError_t error = cudaDeviceSynchronize();
 
@@ -20,11 +20,9 @@ inline void check_cuda_error(const char* message,
       return;
     }
 
-    std::cerr << std::format("[CUDA error] {}({}): {}: {}", src_loc.file_name(), src_loc.line(),
-                             message, cudaGetErrorString(error))
+    std::cerr << std::format("[CUDA error] {}({}): {}: {}", loc.file_name(), loc.line(), message,
+                             cudaGetErrorString(error))
               << std::endl;
-
-    exit(EXIT_FAILURE);
   }
 }
 

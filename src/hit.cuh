@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ray.cuh"
-#include "scene_structs.h"
+#include "scene.hpp"
 
 #include <cuda/std/optional>
 

@@ -48,28 +48,33 @@ find_package(GLM REQUIRED)
 include_directories(${GLM_INCLUDE_DIRS})
 
 set(headers
-    src/image.h
+    src/image.hpp
     src/sample.cuh
     src/hit.cuh
     src/glslUtility.hpp
     src/path_tracer.h
-    src/scene.h
+    src/scene.hpp
     src/scene_structs.h
     src/utilities.cuh
-    src/camera.hpp
     src/ray.cuh
     src/intersection.cuh
+    src/window.hpp
+    src/render_context.hpp
+    src/camera.hpp
 )
 
 set(sources
     src/main.cpp
-    src/stb.cpp
     src/image.cpp
+    src/stb.cpp
     src/glslUtility.cpp
     src/path_tracer.cu
     src/hit.cu
     src/sample.cu
     src/scene.cpp
+    src/window.cpp
+    src/render_context.cpp
+    src/camera.cpp
 )
 
 set(imgui_headers

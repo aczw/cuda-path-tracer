@@ -3,11 +3,13 @@
 #include "ImGui/imgui_impl_opengl3.h"
 #include "glslUtility.hpp"
 #include "gui_data.hpp"
-#include "image.h"
+#include "image.hpp"
 #include "path_tracer.h"
-#include "scene.h"
+#include "render_context.hpp"
+#include "scene.hpp"
 #include "scene_structs.h"
 #include "utilities.cuh"
+#include "window.hpp"
 
 #include <cuda_gl_interop.h>
 #include <cuda_runtime.h>
@@ -25,52 +27,12 @@
 #include <sstream>
 #include <string>
 
-static std::string start_time;
-
-// For camera controls
-static bool leftMousePressed = false;
-static bool rightMousePressed = false;
-static bool middleMousePressed = false;
-static double lastX;
-static double lastY;
-
-static bool camera_changed = true;
-static float dtheta = 0, dphi = 0;
-static glm::vec3 cammove;
-
-float zoom, theta, phi;
-glm::vec3 camera_position;
-glm::vec3 original_look_at;
-
-RenderState* render_state;
-int curr_iteration;
-
-int width;
-int height;
-
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 GLuint pbo;
 GLuint display_image;
 
-ImGuiIO* io = nullptr;
-bool is_mouse_over_imgui = false;
-
-// Forward declarations for window loop and interactivity
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos);
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
-
-std::string get_current_time() {
-  time_t now;
-  time(&now);
-  char buf[sizeof("0000-00-00_00-00-00z")];
-  strftime(buf, sizeof buf, "%Y-%m-%d_%H-%M-%Sz", gmtime(&now));
-
-  return std::string(buf);
-}
-
-void init_textures() {
+void initialize_textures(int width, int height) {
   glGenTextures(1, &display_image);
   glBindTexture(GL_TEXTURE_2D, display_image);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -78,13 +40,9 @@ void init_textures() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
 }
 
-void init_vao(void) {
-  GLfloat vertices[] = {
-      -1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f,
-  };
-
-  GLfloat texcoords[] = {1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f};
-
+void initialize_vao(void) {
+  GLfloat vertices[] = {-1.0f, -1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f, 1.0f};
+  GLfloat uv[] = {1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f};
   GLushort indices[] = {0, 1, 3, 3, 1, 2};
 
   GLuint vertexBufferObjID[3];
@@ -96,7 +54,7 @@ void init_vao(void) {
   glEnableVertexAttribArray(positionLocation);
 
   glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[1]);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(uv), uv, GL_STATIC_DRAW);
   glVertexAttribPointer((GLuint)texcoordsLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
   glEnableVertexAttribArray(texcoordsLocation);
 
@@ -104,7 +62,7 @@ void init_vao(void) {
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
-GLuint init_shader() {
+GLuint initialize_shader() {
   const char* attribLocations[] = {"Position", "Texcoords"};
   GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
   GLint location;
@@ -117,40 +75,9 @@ GLuint init_shader() {
   return program;
 }
 
-void delete_pbo(GLuint* pbo) {
-  if (pbo) {
-    // unregister this buffer object with CUDA
-    cudaGLUnregisterBufferObject(*pbo);
-
-    glBindBuffer(GL_ARRAY_BUFFER, *pbo);
-    glDeleteBuffers(1, pbo);
-
-    *pbo = (GLuint)NULL;
-  }
-}
-
-void clean_up_cuda() {
-  if (pbo) {
-    delete_pbo(&pbo);
-  }
-
-  if (display_image) {
-    glDeleteTextures(1, &display_image);
-    display_image = (GLuint)NULL;
-  }
-}
-
-void init_cuda() {
-  cudaGLSetGLDevice(0);
-
-  // Clean up on program exit
-  atexit(clean_up_cuda);
-}
-
-void init_pbo() {
-  // set up vertex data parameter
-  int num_texels = width * height;
-  int num_values = num_texels * 4;
+void initialize_pbo(int num_pixels) {
+  // Set up vertex data parameter
+  int num_values = num_pixels * 4;
   int size_tex_data = sizeof(GLubyte) * num_values;
 
   // Generate a buffer ID called a PBO (Pixel Buffer Object)
@@ -164,75 +91,62 @@ void init_pbo() {
   cudaGLRegisterBufferObject(pbo);
 }
 
-void error_callback(int error, const char* description) {
-  std::cerr << std::format("{}", description) << std::endl;
-}
-
-/// Initialize CUDA and GL components.
-GLFWwindow* initialize_components(Scene* scene) {
-  glfwSetErrorCallback(error_callback);
-
-  if (!glfwInit()) {
-    exit(EXIT_FAILURE);
-  }
-
-  GLFWwindow* window = glfwCreateWindow(width, height, "CUDA Path Tracer", nullptr, nullptr);
-
-  if (!window) {
-    glfwTerminate();
-    exit(EXIT_FAILURE);
-  }
-
-  glfwMakeContextCurrent(window);
-  glfwSetWindowUserPointer(window, static_cast<void*>(scene));
-
-  glfwSetKeyCallback(window, key_callback);
-  glfwSetCursorPosCallback(window, mouse_pos_callback);
-  glfwSetMouseButtonCallback(window, mouse_button_callback);
-
+/// Initialize CUDA, OpenGL, and GUI components.
+bool initialize_components(RenderContext* ctx, GLFWwindow* window) {
   // Set up GL context
   glewExperimental = GL_TRUE;
 
   if (glewInit() != GLEW_OK) {
-    glfwTerminate();
-    exit(EXIT_FAILURE);
+    std::cerr << "[GLEW] Failed to initialize" << std::endl;
+    return false;
   }
 
-  std::cout << std::format("OpenGL version: {}\n",
+  std::cout << std::format("[Info] OpenGL version: {}\n",
                            reinterpret_cast<const char*>(glGetString(GL_VERSION)));
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  io = &ImGui::GetIO();
   ImGui::StyleColorsLight();
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 120");
+  ctx->io = &ImGui::GetIO();
 
-  // Initialize other stuff
-  init_vao();
-  init_textures();
-  init_cuda();
-  init_pbo();
+  int width = ctx->get_width();
+  int height = ctx->get_height();
 
-  GLuint passthrough_prog = init_shader();
-  glUseProgram(passthrough_prog);
+  initialize_vao();
+  initialize_textures(width, height);
+  // cudaGLSetGLDevice(0);
+  initialize_pbo(width * height);
+
+  glUseProgram(initialize_shader());
   glActiveTexture(GL_TEXTURE0);
 
-  return window;
+  return true;
 }
 
-void free_components(GLFWwindow* window) {
+void free_components() {
   ImGui_ImplOpenGL3_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 
-  glfwDestroyWindow(window);
-  glfwTerminate();
+  if (pbo) {
+    // Unregister this buffer object with CUDA
+    cudaGLUnregisterBufferObject(pbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, pbo);
+    glDeleteBuffers(1, &pbo);
+
+    pbo = (GLuint)NULL;
+  }
+
+  if (display_image) {
+    glDeleteTextures(1, &display_image);
+    display_image = (GLuint)NULL;
+  }
 }
 
 void render_gui(GuiData* gui_data) {
-  is_mouse_over_imgui = io->WantCaptureMouse;
-
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
@@ -241,7 +155,7 @@ void render_gui(GuiData* gui_data) {
   {
     ImGui::Text("Depth: %d", gui_data->max_depth);
 
-    float fps = io->Framerate;
+    float fps = ImGui::GetIO().Framerate;
     ImGui::Text("FPS: %.2f (%.2f ms)", fps, 1000.0f / fps);
 
     ImGui::Separator();
@@ -272,85 +186,62 @@ void render_gui(GuiData* gui_data) {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void save_image() {
-  float num_samples = curr_iteration;
-  // output image file
-  Image image(width, height);
-
-  for (int x = 0; x < width; x++) {
-    for (int y = 0; y < height; y++) {
-      int index = x + (y * width);
-      glm::vec3 pix = render_state->image[index];
-      image.set_pixel(width - 1 - x, y, glm::vec3(pix) / num_samples);
-    }
-  }
-
-  std::string file_name =
-      std::format("{}_{}_{}samples", render_state->image_name, start_time, num_samples);
-  image.save_as_png(file_name);
-  // img.saveHDR(filename);
-}
-
-void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
-  Camera& camera = render_state->camera;
+void loop(RenderContext* ctx, GLFWwindow* window, GuiData* gui_data) {
   std::array<char, 10> iter_str;
+  PathTracer path_tracer(ctx, gui_data);
 
+  float prev_zoom, prev_theta, prev_phi;
+  Camera prev_camera = ctx->scene.camera;
   GuiData prev_gui_data = *gui_data;
-  PathTracer path_tracer(gui_data, scene);
+
+  int width = ctx->get_width();
+  int height = ctx->get_height();
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-    if (camera_changed) {
-      curr_iteration = 0;
+    if (prev_camera != ctx->scene.camera || prev_zoom != ctx->zoom || prev_theta != ctx->theta ||
+        prev_phi != ctx->phi) {
+      ctx->curr_iteration = 0;
+      ctx->scene.camera.update(ctx->zoom, ctx->theta, ctx->phi);
 
-      camera_position.x = zoom * std::sin(phi) * std::sin(theta);
-      camera_position.y = zoom * std::cos(theta);
-      camera_position.z = zoom * std::cos(phi) * std::sin(theta);
-
-      camera.view = -glm::normalize(camera_position);
-      glm::vec3 v = camera.view;
-      glm::vec3 u = glm::vec3(0, 1, 0);  // glm::normalize(cam.up);
-      glm::vec3 r = glm::cross(v, u);
-      camera.up = glm::cross(r, v);
-      camera.right = r;
-
-      camera_position += camera.look_at;
-      camera.position = camera_position;
-
-      camera_changed = false;
+      prev_zoom = ctx->zoom;
+      prev_theta = ctx->theta;
+      prev_phi = ctx->phi;
+      prev_camera = ctx->scene.camera;
     }
 
     if (prev_gui_data.stochastic_sampling != gui_data->stochastic_sampling) {
-      curr_iteration = 0;
+      ctx->curr_iteration = 0;
     }
 
-    if (curr_iteration == 0) {
+    if (ctx->curr_iteration == 0) {
       path_tracer.free();
       path_tracer.initialize();
     }
 
-    if (curr_iteration < render_state->total_iterations) {
+    if (ctx->curr_iteration < ctx->settings.max_iterations) {
       uchar4* pbo_dptr = nullptr;
-      curr_iteration++;
+      ctx->curr_iteration += 1;
 
       // Map OpenGL buffer object for writing from CUDA on a single GPU.
       // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
       cudaGLMapBufferObject(reinterpret_cast<void**>(&pbo_dptr), pbo);
 
-      path_tracer.run_iteration(pbo_dptr, curr_iteration);
+      path_tracer.run_iteration(pbo_dptr, ctx->curr_iteration);
 
       // Unmap buffer object
       cudaGLUnmapBufferObject(pbo);
     } else {
-      save_image();
+      ctx->save_image();
       path_tracer.free();
       cudaDeviceReset();
 
-      exit(EXIT_SUCCESS);
+      return;
     }
 
-    std::string title = std::format("CIS 5650 CUDA Path Tracer | {} iterations", curr_iteration);
+    std::string title =
+        std::format("CIS 5650 CUDA Path Tracer | {} iterations", ctx->curr_iteration);
     glfwSetWindowTitle(window, title.c_str());
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
@@ -365,122 +256,45 @@ void loop(GLFWwindow* window, GuiData* gui_data, Scene* scene) {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
     prev_gui_data = *gui_data;
+    ctx->input.mouse_over_gui = ImGui::GetIO().WantCaptureMouse;
     render_gui(gui_data);
 
     glfwSwapBuffers(window);
   }
 }
 
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
-  if (action != GLFW_PRESS) {
-    return;
-  }
-
-  switch (key) {
-    case GLFW_KEY_ESCAPE:
-      glfwSetWindowShouldClose(window, GL_TRUE);
-      break;
-
-    case GLFW_KEY_S:
-      save_image();
-      break;
-
-    case GLFW_KEY_SPACE:
-      camera_changed = true;
-      render_state = &(static_cast<Scene*>(glfwGetWindowUserPointer(window))->state);
-      render_state->camera.look_at = original_look_at;
-      break;
-  }
-}
-
-void mouse_button_callback(GLFWwindow* window, int button, int action, int mods) {
-  if (is_mouse_over_imgui) {
-    return;
-  }
-
-  leftMousePressed = (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS);
-  rightMousePressed = (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS);
-  middleMousePressed = (button == GLFW_MOUSE_BUTTON_MIDDLE && action == GLFW_PRESS);
-}
-
-void mouse_pos_callback(GLFWwindow* window, double xpos, double ypos) {
-  if (xpos == lastX || ypos == lastY) {
-    // Otherwise, clicking back into window causes re-start
-    return;
-  }
-
-  if (leftMousePressed) {
-    // compute new camera parameters
-    phi -= (xpos - lastX) / width;
-    theta -= (ypos - lastY) / height;
-    theta = std::fmax(0.001f, std::fmin(theta, std::numbers::pi));
-    camera_changed = true;
-  } else if (rightMousePressed) {
-    zoom += (ypos - lastY) / height;
-    zoom = std::fmax(0.1f, zoom);
-    camera_changed = true;
-  } else if (middleMousePressed) {
-    render_state = &(static_cast<Scene*>(glfwGetWindowUserPointer(window))->state);
-    Camera& cam = render_state->camera;
-    glm::vec3 forward = cam.view;
-    forward.y = 0.0f;
-    forward = glm::normalize(forward);
-    glm::vec3 right = cam.right;
-    right.y = 0.0f;
-    right = glm::normalize(right);
-
-    cam.look_at -= (float)(xpos - lastX) * right * 0.01f;
-    cam.look_at += (float)(ypos - lastY) * forward * 0.01f;
-    camera_changed = true;
-  }
-
-  lastX = xpos;
-  lastY = ypos;
-}
-
 int main(int argc, char* argv[]) {
-  start_time = get_current_time();
-
   if (argc < 2) {
     std::cerr << std::format("Usage: {} <scene_file.json>", argv[0]) << std::endl;
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr scene = std::make_unique<Scene>(argv[1]);
+  std::unique_ptr ctx = std::make_unique<RenderContext>();
+
+  if (!ctx->try_open_scene(argv[1])) {
+    return EXIT_FAILURE;
+  }
+
   std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
-      .max_depth = scene->state.trace_depth,
+      .max_depth = ctx->settings.max_depth,
       .sort_paths_by_material = true,
       .discard_oob_paths = true,
       .discard_light_isect_paths = true,
       .stochastic_sampling = true,
   });
 
-  // Set up camera stuff from loaded path tracer settings
-  curr_iteration = 0;
-  render_state = &scene->state;
-  Camera& cam = render_state->camera;
-  width = cam.resolution.x;
-  height = cam.resolution.y;
+  Window window(ctx.get());
 
-  glm::vec3 view = cam.view;
-  glm::vec3 up = cam.up;
-  glm::vec3 right = glm::cross(view, up);
-  up = glm::cross(right, view);
+  if (!window.try_init()) {
+    return EXIT_FAILURE;
+  }
 
-  camera_position = cam.position;
+  if (!initialize_components(ctx.get(), window.get())) {
+    return EXIT_FAILURE;
+  }
 
-  // compute phi (horizontal) and theta (vertical) relative 3D axis
-  // so, (0 0 1) is forward, (0 1 0) is up
-  glm::vec3 viewXZ = glm::vec3(view.x, 0.0f, view.z);
-  glm::vec3 viewZY = glm::vec3(0.0f, view.y, view.z);
-  phi = glm::acos(glm::dot(glm::normalize(viewXZ), glm::vec3(0, 0, -1)));
-  theta = glm::acos(glm::dot(glm::normalize(viewZY), glm::vec3(0, 1, 0)));
-  original_look_at = cam.look_at;
-  zoom = glm::length(cam.position - original_look_at);
-
-  GLFWwindow* window = initialize_components(scene.get());
-  loop(window, gui_data.get(), scene.get());
-  free_components(window);
+  loop(ctx.get(), window.get(), gui_data.get());
+  free_components();
 
   return EXIT_SUCCESS;
 }

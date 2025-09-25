@@ -57,7 +57,7 @@ char* loadFile(const char* fname, GLint& fSize) {
   }
 
   std::cout << "Unable to open file " << fname << std::endl;
-  exit(EXIT_FAILURE);
+  return nullptr;
 }
 
 // printShaderInfoLog

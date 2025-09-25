@@ -262,24 +262,25 @@ struct SortByMaterialId {
   }
 };
 
-PathTracer::PathTracer(GuiData* gui_data, Scene* scene) : gui_data(gui_data), scene(scene) {}
+PathTracer::PathTracer(RenderContext* ctx, GuiData* gui_data) : ctx(ctx), gui_data(gui_data) {}
 
 void PathTracer::initialize() {
-  const Camera& cam = scene->state.camera;
-  const int num_pixels = cam.resolution.x * cam.resolution.y;
+  const int num_pixels = ctx->get_width() * ctx->get_height();
 
   cudaMalloc(&dev_image, num_pixels * sizeof(glm::vec3));
   cudaMemset(dev_image, 0, num_pixels * sizeof(glm::vec3));
 
   cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
 
-  cudaMalloc(&dev_geometry_list, scene->geometry_list.size() * sizeof(Geometry));
-  cudaMemcpy(dev_geometry_list, scene->geometry_list.data(),
-             scene->geometry_list.size() * sizeof(Geometry), cudaMemcpyHostToDevice);
+  const std::vector<Geometry>& geometry_list = ctx->scene.geometry_list;
+  cudaMalloc(&dev_geometry_list, geometry_list.size() * sizeof(Geometry));
+  cudaMemcpy(dev_geometry_list, geometry_list.data(), geometry_list.size() * sizeof(Geometry),
+             cudaMemcpyHostToDevice);
 
-  cudaMalloc(&dev_material_list, scene->material_list.size() * sizeof(Material));
-  cudaMemcpy(dev_material_list, scene->material_list.data(),
-             scene->material_list.size() * sizeof(Material), cudaMemcpyHostToDevice);
+  const std::vector<Material>& material_list = ctx->scene.material_list;
+  cudaMalloc(&dev_material_list, material_list.size() * sizeof(Material));
+  cudaMemcpy(dev_material_list, material_list.data(), material_list.size() * sizeof(Material),
+             cudaMemcpyHostToDevice);
 
   cudaMalloc(&dev_intersections, num_pixels * sizeof(Intersection));
 
@@ -298,9 +299,11 @@ void PathTracer::free() {
 }
 
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
-  const int max_depth = scene->state.trace_depth;
-  const Camera& camera = scene->state.camera;
-  const int geometry_size = scene->geometry_list.size();
+    const int max_depth = ctx->settings.max_depth;
+
+  const Scene& scene = ctx->scene;
+  const Camera& camera = scene.camera;
+  const int geometry_size = scene.geometry_list.size();
 
   const int num_pixels = camera.resolution.x * camera.resolution.y;
 
@@ -374,8 +377,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   kern_send_to_pbo<<<num_blocks_64, block_size_64>>>(num_pixels, pbo, curr_iter, dev_image);
 
   // Retrieve image from GPU
-  cudaMemcpy(scene->state.image.data(), dev_image, num_pixels * sizeof(glm::vec3),
-             cudaMemcpyDeviceToHost);
+  cudaMemcpy(ctx->image.data(), dev_image, num_pixels * sizeof(glm::vec3), cudaMemcpyDeviceToHost);
 
   check_cuda_error("PathTracer::run");
 }

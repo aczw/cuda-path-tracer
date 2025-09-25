@@ -1,14 +1,15 @@
 #pragma once
 
 #include "gui_data.hpp"
-#include "scene.h"
-#include "utilities.cuh"
+#include "render_context.hpp"
 
 #include <glm/glm.hpp>
 
+#include <vector_types.h>
+
 class PathTracer {
  public:
-  explicit PathTracer(GuiData* gui_data, Scene* scene);
+  explicit PathTracer(RenderContext* ctx, GuiData* gui_data);
 
   void initialize();
   void free();
@@ -20,6 +21,6 @@ class PathTracer {
   void run_iteration(uchar4* pbo, int curr_iter);
 
  private:
+  RenderContext* ctx;
   GuiData* gui_data;
-  Scene* scene;
 };

@@ -34,12 +34,3 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
 
   return up * normal + std::cos(around) * over * perp_dir_1 + std::sin(around) * over * perp_dir_2;
 }
-
-__host__ __device__ void scatter_ray(PathSegment& path_segment,
-                                     glm::vec3 intersection_point,
-                                     glm::vec3 normal,
-                                     const Material& mat,
-                                     thrust::default_random_engine& rng) {
-  // TODO(aczw): figure out what to do with this??
-  return;
-}

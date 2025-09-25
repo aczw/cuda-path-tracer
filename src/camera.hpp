@@ -2,7 +2,12 @@
 
 #include <glm/glm.hpp>
 
-struct Camera {
+#include <compare>
+
+class Camera {
+ public:
+  void update(double zoom, double theta, double phi);
+
   glm::ivec2 resolution;
   glm::vec3 position;
   glm::vec3 look_at;
@@ -11,4 +16,6 @@ struct Camera {
   glm::vec3 right;
   glm::vec2 fov;
   glm::vec2 pixel_length;
+
+  auto operator<=>(const Camera&) const = default;
 };

@@ -1,42 +1,42 @@
-#include "image.h"
+#include "image.hpp"
 
+#include <glm/gtc/type_ptr.hpp>
 #include <stb_image_write.h>
 
 #include <iostream>
 #include <string>
 
-Image::Image(int x, int y) : xSize(x), ySize(y), pixels(new glm::vec3[x * y]) {}
-
-Image::~Image() {
-  delete pixels;
-}
+Image::Image(int x, int y)
+    : x_size(x), y_size(y), pixel_data(std::make_unique<glm::vec3[]>(x * y)) {}
 
 void Image::set_pixel(int x, int y, const glm::vec3& pixel) {
-  assert(x >= 0 && y >= 0 && x < xSize && y < ySize);
-  pixels[(y * xSize) + x] = pixel;
+  assert(x >= 0 && y >= 0 && x < x_size && y < y_size);
+  pixel_data[(y * x_size) + x] = pixel;
 }
 
-void Image::save_as_png(const std::string& file_name) {
-  unsigned char* bytes = new unsigned char[3 * xSize * ySize];
-  for (int y = 0; y < ySize; y++) {
-    for (int x = 0; x < xSize; x++) {
-      int i = y * xSize + x;
-      glm::vec3 pix = glm::clamp(pixels[i], glm::vec3(), glm::vec3(1)) * 255.f;
-      bytes[3 * i + 0] = (unsigned char)pix.x;
-      bytes[3 * i + 1] = (unsigned char)pix.y;
-      bytes[3 * i + 2] = (unsigned char)pix.z;
+void Image::save_as_png(const std::string& base_name) {
+  std::unique_ptr bytes = std::make_unique<unsigned char[]>(3 * x_size * y_size);
+
+  for (int y = 0; y < y_size; y++) {
+    for (int x = 0; x < x_size; x++) {
+      int index = y * x_size + x;
+      glm::vec3 pixel = glm::clamp(pixel_data[index], glm::vec3(), glm::vec3(1.f)) * 255.f;
+
+      bytes[3 * index + 0] = static_cast<unsigned char>(pixel.x);
+      bytes[3 * index + 1] = static_cast<unsigned char>(pixel.y);
+      bytes[3 * index + 2] = static_cast<unsigned char>(pixel.z);
     }
   }
 
-  std::string filename = file_name + ".png";
-  stbi_write_png(filename.c_str(), xSize, ySize, 3, bytes, xSize * 3);
-  std::cout << "Saved as " << filename << "." << std::endl;
+  std::string file_name = base_name + ".png";
+  stbi_write_png(file_name.c_str(), x_size, y_size, 3, bytes.get(), x_size * 3);
 
-  delete[] bytes;
+  std::cout << "Saved as " << file_name << "." << std::endl;
 }
 
-void Image::save_as_hdr(const std::string& file_name) {
-  std::string filename = file_name + ".hdr";
-  stbi_write_hdr(filename.c_str(), xSize, ySize, 3, (const float*)pixels);
-  std::cout << "Saved as " + filename + "." << std::endl;
+void Image::save_as_hdr(const std::string& base_name) {
+  std::string file_name = base_name + ".hdr";
+  stbi_write_hdr(file_name.c_str(), x_size, y_size, 3, glm::value_ptr(pixel_data[0]));
+
+  std::cout << "Saved as " + file_name + "." << std::endl;
 }
