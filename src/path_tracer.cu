@@ -22,32 +22,6 @@
 #include <cstdio>
 #include <numbers>
 
-#define ERRORCHECK 1
-#define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
-#define check_cuda_error(msg) check_cuda_error_function(msg, FILENAME, __LINE__)
-
-void check_cuda_error_function(const char* msg, const char* file, int line) {
-#if ERRORCHECK
-  cudaError_t err = cudaDeviceSynchronize();
-
-  if (cudaSuccess == err) {
-    return;
-  }
-
-  std::cerr << "CUDA error";
-
-  if (file) {
-    std::cerr << std::format(" ({}:{})", file, line);
-  }
-
-  std::cerr << std::format(": {}: {}", msg, cudaGetErrorString(err)) << std::endl;
-#ifdef _WIN32
-  getchar();
-#endif  // _WIN32
-  exit(EXIT_FAILURE);
-#endif  // ERRORCHECK
-}
-
 /// Kernel that writes the image to the OpenGL PBO directly.
 __global__ void kern_send_to_pbo(int num_pixels, uchar4* pbo, int curr_iter, glm::vec3* image) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;

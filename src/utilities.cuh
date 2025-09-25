@@ -3,7 +3,30 @@
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 
+#include <format>
+#include <iostream>
+#include <source_location>
+
 #define EPSILON 0.00001f
+
+constexpr bool CHECK_ERRORS = true;
+
+inline void check_cuda_error(const char* message,
+                             std::source_location src_loc = std::source_location::current()) {
+  if constexpr (CHECK_ERRORS) {
+    cudaError_t error = cudaDeviceSynchronize();
+
+    if (cudaSuccess == error) {
+      return;
+    }
+
+    std::cerr << std::format("[CUDA error] {}({}): {}: {}", src_loc.file_name(), src_loc.line(),
+                             message, cudaGetErrorString(error))
+              << std::endl;
+
+    exit(EXIT_FAILURE);
+  }
+}
 
 /// Helper for usage in `cuda::std::visit`. Taken from
 /// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
