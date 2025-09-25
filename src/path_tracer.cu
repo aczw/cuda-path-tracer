@@ -168,56 +168,6 @@ __global__ void kern_find_isects(int num_paths,
   }
 }
 
-/**
- * "Fake" shader demonstrating what you might do with the info in a `Intersection`, as well as how
- * to use Thrust's random number generator. Observe that since the Thrust random number generator
- * basically adds "noise" to the iteration, the image should start off noisy and get cleaner as more
- * iterations are computed.
- *
- * Note that this shader does NOT do a BSDF evaluation! Your shaders should handle that - this can
- * allow techniques such as bump mapping.
- */
-__global__ void kern_shade_fake_material(int num_paths,
-                                         int curr_iter,
-                                         Material* material_list,
-                                         Intersection* intersections,
-                                         PathSegment* segments) {
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-  if (index >= num_paths) {
-    return;
-  }
-
-  cuda::std::visit(
-      Match{
-          [=](OutOfBounds) {
-            // If there was no intersection, color the ray black. Lots of
-            // renderers use 4 channel color, RGBA, where A = alpha, often used
-            // for opacity, in which case they can indicate no opacity. This can
-            // be useful for post-processing and image compositing.
-            segments[index].throughput = glm::vec3();
-          },
-
-          [=](HitLight light) { segments[index].radiance = glm::vec3(light.emittance); },
-
-          [=](Intermediate intm) {
-            Material material = material_list[intm.material_id];
-
-            // Do some pseudo-lighting computation. This is actually more
-            // like what you would expect from shading in a rasterizer like OpenGL.
-            float light_term = glm::dot(intm.surface_normal, glm::vec3(0.f, 1.f, 0.f));
-            segments[index].radiance = (material.color * light_term) * 0.3f +
-                                       ((1.0f - intm.t * 0.02f) * material.color) * 0.7f;
-
-            // Apply some noise because why not
-            thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, 0);
-            thrust::uniform_real_distribution<float> u01(0, 1);
-            segments[index].radiance *= u01(rng);
-          },
-      },
-      intersections[index]);
-}
-
 __global__ void kern_sample(int num_paths,
                             int curr_iter,
                             int curr_depth,
