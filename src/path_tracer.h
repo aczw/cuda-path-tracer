@@ -6,9 +6,10 @@
 
 #include <glm/glm.hpp>
 
-void init_data_container(GuiData* gui_data);
+class PathTracer {
+ public:
+  explicit PathTracer(GuiData* gui_data);
 
-struct PathTracer {
   void initialize(Scene* scene);
   void free();
 
@@ -17,4 +18,7 @@ struct PathTracer {
    * and performs path tracing for a singular iteration.
    */
   void run_iteration(uchar4* pbo, int curr_iter);
+
+ private:
+  GuiData* gui_data;
 };

@@ -20,6 +20,7 @@
 #include <cstdlib>
 #include <format>
 #include <iostream>
+#include <memory>
 #include <numbers>
 #include <sstream>
 #include <string>
@@ -55,7 +56,6 @@ GLuint pbo;
 GLuint displayImage;
 
 GLFWwindow* window;
-GuiData* imguiData = NULL;
 ImGuiIO* io = nullptr;
 bool is_mouse_over_imgui = false;
 
@@ -218,12 +218,7 @@ bool init() {
   return true;
 }
 
-void InitImguiData(GuiData* gui_data) {
-  imguiData = gui_data;
-}
-
-// LOOK: Un-Comment to check ImGui Usage
-void RenderImGui() {
+void render_imgui(GuiData* gui_data) {
   is_mouse_over_imgui = io->WantCaptureMouse;
 
   ImGui_ImplOpenGL3_NewFrame();
@@ -254,7 +249,7 @@ void RenderImGui() {
   //     counter++;
   // ImGui::SameLine();
   // ImGui::Text("counter = %d", counter);
-  ImGui::Text("Traced Depth %d", imguiData->traced_depth);
+  ImGui::Text("Traced Depth %d", gui_data->max_depth);
   ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
               ImGui::GetIO().Framerate);
   ImGui::End();
@@ -285,11 +280,11 @@ void saveImage() {
   // img.saveHDR(filename);  // Save a Radiance HDR file
 }
 
-void run_main_loop() {
+void run_main_loop(GuiData* gui_data) {
   Camera& camera = render_state->camera;
 
   std::array<char, 10> iter_str;
-  PathTracer path_tracer;
+  PathTracer path_tracer(gui_data);
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
@@ -355,7 +350,7 @@ void run_main_loop() {
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
     // Render ImGui Stuff
-    RenderImGui();
+    render_imgui(gui_data);
 
     glfwSwapBuffers(window);
   }
@@ -446,8 +441,9 @@ int main(int argc, char* argv[]) {
   // Load scene file
   scene = new Scene(sceneFile);
 
-  // Create Instance for ImGUIData
-  gui_data = new GuiData();
+  std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
+      .max_depth = scene->state.trace_depth,
+  });
 
   // Set up camera stuff from loaded path tracer settings
   curr_iteration = 0;
@@ -474,12 +470,7 @@ int main(int argc, char* argv[]) {
 
   // Initialize CUDA and GL components
   init();
-
-  // Initialize ImGui Data
-  InitImguiData(gui_data);
-  init_data_container(gui_data);
-
-  run_main_loop();
+  run_main_loop(gui_data.get());
 
   return EXIT_SUCCESS;
 }

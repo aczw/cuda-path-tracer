@@ -72,7 +72,6 @@ __global__ void kern_send_to_pbo(int num_pixels, uchar4* pbo, int curr_iter, glm
 // TODO(aczw): convert to thrust::device_ptr? would need to use
 // thrust::raw_pointer_cast when submitting these to kernels
 static Scene* hst_scene = nullptr;
-static GuiData* gui_data = nullptr;
 static glm::vec3* dev_image = nullptr;
 
 static Geometry* dev_geometry_list = nullptr;
@@ -80,10 +79,6 @@ static Material* dev_material_list = nullptr;
 
 static PathSegment* dev_segments = nullptr;
 static Intersection* dev_intersections = nullptr;
-
-void init_data_container(GuiData* imgui_data) {
-  gui_data = imgui_data;
-}
 
 /**
  * Generate `PathSegment`s with rays from the camera through the screen into the
@@ -333,6 +328,8 @@ struct SortByMaterialId {
   }
 };
 
+PathTracer::PathTracer(GuiData* gui_data) : gui_data(gui_data) {}
+
 void PathTracer::initialize(Scene* scene) {
   hst_scene = scene;
 
@@ -429,9 +426,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
       break;
     }
 
-    if (gui_data) {
-      gui_data->traced_depth = curr_depth;
-    }
+    gui_data->max_depth = curr_depth;
   }
 
   // Assemble this iteration and apply it to the image
