@@ -13,7 +13,7 @@ class Window {
   bool try_init();
 
   /// Retrieves the underlying `GLFWWindow` pointer.
-  GLFWwindow* get();
+  GLFWwindow* get() const;
 
  private:
   GLFWwindow* window;

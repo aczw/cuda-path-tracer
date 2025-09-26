@@ -36,7 +36,7 @@ struct Match : Ts... {
 /**
  * Handy-dandy hash function that provides seeds for random number generation.
  */
-__host__ __device__ inline unsigned int generate_hash(unsigned int a) {
+__host__ __device__ constexpr unsigned int generate_hash(unsigned int a) {
   a = (a + 0x7ed55d16) + (a << 12);
   a = (a ^ 0xc761c23c) ^ (a >> 19);
   a = (a + 0x165667b1) + (a << 5);
@@ -59,6 +59,6 @@ __host__ __device__ inline thrust::default_random_engine make_seeded_random_engi
 /**
  * Divides `a` by `b` and rounds it up to the nearest integer.
  */
-__host__ __device__ inline int divide_ceil(int a, int b) {
+__host__ __device__ constexpr int divide_ceil(int a, int b) {
   return (a + b - 1) / b;
 };

@@ -98,6 +98,7 @@ bool Window::try_init() {
   glfwSetErrorCallback(callback::on_error);
 
   if (!glfwInit()) {
+    std::cerr << "[GLFW] Failed to init" << std::endl;
     return false;
   }
 
@@ -110,6 +111,7 @@ bool Window::try_init() {
 
   if (!window) {
     glfwTerminate();
+    std::cerr << "[GLFW] Failed to create window!" << std::endl;
     return false;
   }
 
@@ -123,6 +125,6 @@ bool Window::try_init() {
   return true;
 }
 
-GLFWwindow* Window::get() {
+GLFWwindow* Window::get() const {
   return window;
 }

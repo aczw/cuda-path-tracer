@@ -26,7 +26,10 @@ class RenderContext {
   bool try_open_scene(std::string_view scene_file);
   void save_image(Image::Format format = Image::Format::PNG) const;
 
+  /// Convenience getter for camera width.
   int get_width() const;
+
+  /// Convenience getter for camera height.
   int get_height() const;
 
   Scene scene;

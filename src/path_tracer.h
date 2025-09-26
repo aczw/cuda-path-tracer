@@ -1,7 +1,13 @@
 #pragma once
 
 #include "gui_data.hpp"
+#include "intersection.cuh"
 #include "render_context.hpp"
+#include "scene_structs.h"
+
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/zip_iterator.h>
+#include <thrust/tuple.h>
 
 #include <glm/glm.hpp>
 
@@ -23,4 +29,25 @@ class PathTracer {
  private:
   RenderContext* ctx;
   GuiData* gui_data;
+
+  glm::vec3* dev_image;
+  Geometry* dev_geometry_list;
+  Material* dev_material_list;
+  PathSegment* dev_segments;
+  Intersection* dev_intersections;
+
+  using PathSegmentPtr = thrust::device_ptr<PathSegment>;
+  using IntersectionPtr = thrust::device_ptr<Intersection>;
+  PathSegmentPtr tdp_segments;
+  IntersectionPtr tdp_intersections;
+
+  using IteratorTuple = thrust::tuple<IntersectionPtr, PathSegmentPtr>;
+  thrust::zip_iterator<IteratorTuple> zip_begin;
+  thrust::zip_iterator<IteratorTuple> zip_end;
+
+  int num_blocks_64;
+  int num_blocks_128;
+
+  static constexpr int BLOCK_SIZE_64 = 64;
+  static constexpr int BLOCK_SIZE_128 = 128;
 };
