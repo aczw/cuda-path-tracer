@@ -154,12 +154,21 @@ void render_gui(GuiData* gui_data) {
 
     ImGui::Separator();
 
-    ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
-    ImGui::Checkbox("Discard paths that went out of bounds", &gui_data->discard_oob_paths);
-    ImGui::Checkbox("Discard paths that intersected with a light",
-                    &gui_data->discard_light_isect_paths);
-    ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
-    ImGui::Checkbox("Apply tone mapping", &gui_data->apply_tone_mapping);
+    if (ImGui::BeginTabBar("Configuration")) {
+      if (ImGui::BeginTabItem("Performance")) {
+        ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
+        ImGui::Checkbox("Discard paths that went out of bounds", &gui_data->discard_oob_paths);
+        ImGui::Checkbox("Discard paths that intersected with a light",
+                        &gui_data->discard_light_isect_paths);
+        ImGui::EndTabItem();
+      }
+
+      if (ImGui::BeginTabItem("Visual")) {
+        ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
+        ImGui::Checkbox("Apply tone mapping", &gui_data->apply_tone_mapping);
+        ImGui::EndTabItem();
+      }
+    }
   }
   ImGui::End();
 
