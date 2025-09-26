@@ -54,13 +54,14 @@ set(headers
     src/glslUtility.hpp
     src/path_tracer.h
     src/scene.hpp
-    src/scene_structs.h
+    src/path_segment.hpp
     src/utilities.cuh
     src/ray.cuh
     src/intersection.cuh
     src/window.hpp
     src/render_context.hpp
     src/camera.hpp
+    src/tone_mapping.cuh
 )
 
 set(sources

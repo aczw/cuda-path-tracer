@@ -1,8 +1,9 @@
 #include "hit.cuh"
 #include "intersection.cuh"
+#include "path_segment.hpp"
 #include "path_tracer.h"
 #include "sample.cuh"
-#include "scene_structs.h"
+#include "tone_mapping.cuh"
 
 #include <cuda.h>
 #include <cuda/std/limits>
@@ -21,23 +22,28 @@
 #include <cstdio>
 #include <numbers>
 
-// TODO(aczw): convert to thrust::device_ptr? would need to use
-// thrust::raw_pointer_cast when submitting these to kernels
-
 /// Kernel that writes the image to the OpenGL PBO directly.
-__global__ void kern_send_to_pbo(int num_pixels, uchar4* pbo, int curr_iter, glm::vec3* image) {
+__global__ void kern_send_to_pbo(int num_pixels,
+                                 uchar4* pbo,
+                                 int curr_iter,
+                                 glm::vec3* image,
+                                 bool apply_tone_mapping) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
     return;
   }
 
-  glm::vec3 pixel = image[index];
+  glm::vec3 pixel = image[index] / static_cast<float>(curr_iter);
+
+  if (apply_tone_mapping) {
+    pixel = glm::clamp(gamma_correct(apply_reinhard(pixel)), glm::vec3(), glm::vec3(1.f));
+  }
 
   glm::ivec3 color;
-  color.x = glm::clamp(static_cast<int>(pixel.x / curr_iter * 255.0), 0, 255);
-  color.y = glm::clamp(static_cast<int>(pixel.y / curr_iter * 255.0), 0, 255);
-  color.z = glm::clamp(static_cast<int>(pixel.z / curr_iter * 255.0), 0, 255);
+  color.x = glm::clamp(static_cast<int>(pixel.x * 255.f), 0, 255);
+  color.y = glm::clamp(static_cast<int>(pixel.y * 255.f), 0, 255);
+  color.z = glm::clamp(static_cast<int>(pixel.z * 255.f), 0, 255);
 
   // Each thread writes one pixel location in the texture (textel)
   pbo[index].w = 0;
@@ -253,9 +259,8 @@ struct SortByMaterialId {
   }
 };
 
-PathTracer::PathTracer(RenderContext* ctx, GuiData* gui_data)
+PathTracer::PathTracer(RenderContext* ctx)
     : ctx(ctx),
-      gui_data(gui_data),
       dev_image(nullptr),
       dev_geometry_list(nullptr),
       dev_material_list(nullptr),
@@ -313,6 +318,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const Camera& camera = ctx->scene.camera;
   const int num_pixels = ctx->get_width() * ctx->get_height();
 
+  GuiData* gui_data = ctx->get_gui_data();
+
   // Initialize first batch of path segments
   kern_gen_rays_from_cam<<<num_blocks_64, BLOCK_SIZE_64>>>(
       num_pixels, camera, curr_iter, max_depth, dev_segments, gui_data->stochastic_sampling);
@@ -364,7 +371,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   kern_final_gather<<<num_blocks_128, BLOCK_SIZE_128>>>(num_pixels, dev_image, dev_segments);
 
   // Send results to OpenGL buffer for rendering
-  kern_send_to_pbo<<<num_blocks_64, BLOCK_SIZE_64>>>(num_pixels, pbo, curr_iter, dev_image);
+  kern_send_to_pbo<<<num_blocks_64, BLOCK_SIZE_64>>>(num_pixels, pbo, curr_iter, dev_image,
+                                                     gui_data->apply_tone_mapping);
 
   // Retrieve image from GPU
   cudaMemcpy(ctx->image.data(), dev_image, num_pixels * sizeof(glm::vec3), cudaMemcpyDeviceToHost);

@@ -62,6 +62,15 @@ bool RenderContext::try_open_scene(std::string_view scene_file) {
   pbo = 0;
   display_image = 0;
 
+  gui_data = std::make_unique<GuiData>(GuiData{
+      .max_depth = settings.max_depth,
+      .sort_paths_by_material = false,
+      .discard_oob_paths = false,
+      .discard_light_isect_paths = false,
+      .stochastic_sampling = true,
+      .apply_tone_mapping = false,
+  });
+
   return true;
 }
 
@@ -75,9 +84,7 @@ void RenderContext::save_image(Image::Format format) const {
   for (int x = 0; x < width; x++) {
     for (int y = 0; y < height; y++) {
       int index = x + (y * width);
-
-      glm::vec3 pixel = image[index];
-      output.set_pixel(width - 1 - x, y, pixel / num_samples);
+      output.set_pixel(width - 1 - x, y, image[index] / num_samples);
     }
   }
 
@@ -86,7 +93,7 @@ void RenderContext::save_image(Image::Format format) const {
 
   switch (format) {
     case Image::Format::PNG:
-      output.save_as_png(base_name);
+      output.save_as_png(base_name, gui_data->apply_tone_mapping);
       break;
 
     case Image::Format::HDR:
@@ -104,4 +111,8 @@ int RenderContext::get_width() const {
 
 int RenderContext::get_height() const {
   return scene.camera.resolution.y;
+}
+
+GuiData* RenderContext::get_gui_data() const {
+  return gui_data.get();
 }

@@ -1,12 +1,14 @@
 #pragma once
 
 #include "ImGui/imgui.h"
+#include "gui_data.hpp"
 #include "image.hpp"
 #include "scene.hpp"
 
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -32,6 +34,9 @@ class RenderContext {
   /// Convenience getter for camera height.
   int get_height() const;
 
+  /// Retrieves pointer to GUI data.
+  GuiData* get_gui_data() const;
+
   Scene scene;
   Settings settings;
   std::string start_time;
@@ -45,4 +50,6 @@ class RenderContext {
 
   GLuint pbo;
   GLuint display_image;
+
+  std::unique_ptr<GuiData> gui_data;
 };

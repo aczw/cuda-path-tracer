@@ -2,8 +2,8 @@
 
 #include "gui_data.hpp"
 #include "intersection.cuh"
+#include "path_segment.hpp"
 #include "render_context.hpp"
-#include "scene_structs.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -15,7 +15,7 @@
 
 class PathTracer {
  public:
-  explicit PathTracer(RenderContext* ctx, GuiData* gui_data);
+  explicit PathTracer(RenderContext* ctx);
 
   void initialize();
   void free();
@@ -28,7 +28,6 @@ class PathTracer {
 
  private:
   RenderContext* ctx;
-  GuiData* gui_data;
 
   glm::vec3* dev_image;
   Geometry* dev_geometry_list;

@@ -28,7 +28,6 @@ void on_key(GLFWwindow* window, int key, int scancode, int action, int mods) {
 
     case GLFW_KEY_SPACE:
       ctx->scene.camera = ctx->settings.original_camera;
-      // TODO(aczw): reset image_data as well? reset
       break;
   }
 }

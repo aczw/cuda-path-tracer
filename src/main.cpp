@@ -4,10 +4,10 @@
 #include "glslUtility.hpp"
 #include "gui_data.hpp"
 #include "image.hpp"
+#include "path_segment.hpp"
 #include "path_tracer.h"
 #include "render_context.hpp"
 #include "scene.hpp"
-#include "scene_structs.h"
 #include "utilities.cuh"
 #include "window.hpp"
 
@@ -159,6 +159,7 @@ void render_gui(GuiData* gui_data) {
     ImGui::Checkbox("Discard paths that intersected with a light",
                     &gui_data->discard_light_isect_paths);
     ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
+    ImGui::Checkbox("Apply tone mapping", &gui_data->apply_tone_mapping);
   }
   ImGui::End();
 
@@ -166,9 +167,10 @@ void render_gui(GuiData* gui_data) {
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void loop(RenderContext* ctx, GLFWwindow* window, GuiData* gui_data) {
+void loop(RenderContext* ctx, GLFWwindow* window) {
   std::array<char, 10> iter_str;
-  PathTracer path_tracer(ctx, gui_data);
+  GuiData* gui_data = ctx->get_gui_data();
+  PathTracer path_tracer(ctx);
 
   float prev_zoom, prev_theta, prev_phi;
   Camera prev_camera = ctx->scene.camera;
@@ -191,7 +193,8 @@ void loop(RenderContext* ctx, GLFWwindow* window, GuiData* gui_data) {
       prev_camera = ctx->scene.camera;
     }
 
-    if (prev_gui_data.stochastic_sampling != gui_data->stochastic_sampling) {
+    if (prev_gui_data.stochastic_sampling != gui_data->stochastic_sampling ||
+        prev_gui_data.apply_tone_mapping != gui_data->apply_tone_mapping) {
       ctx->curr_iteration = 0;
     }
 
@@ -255,14 +258,6 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  std::unique_ptr gui_data = std::make_unique<GuiData>(GuiData{
-      .max_depth = ctx->settings.max_depth,
-      .sort_paths_by_material = true,
-      .discard_oob_paths = true,
-      .discard_light_isect_paths = true,
-      .stochastic_sampling = true,
-  });
-
   Window window(ctx.get());
 
   if (!window.try_init()) {
@@ -273,7 +268,7 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  loop(ctx.get(), window.get(), gui_data.get());
+  loop(ctx.get(), window.get());
   free_components(ctx.get());
 
   return EXIT_SUCCESS;
