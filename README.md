@@ -91,6 +91,10 @@ The reason for this change is to reduce random accesses into the global material
 
 TODO(aczw): prove this
 
+### Stochastic sampling (anti-aliasing)
+
+### Tone mapping
+
 ## Credits
 
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
