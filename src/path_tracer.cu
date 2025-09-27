@@ -356,7 +356,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     // - russian roulette
     // - too many bounces within glass
     if (gui_data->discard_light_isect_paths) {
-      zip_end = thrust::partition(zip_begin, zip_end, not_light_isect);
+      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, not_light_isect);
       num_paths = thrust::distance(zip_begin, zip_end);
     }
 
