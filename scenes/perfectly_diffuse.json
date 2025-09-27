@@ -24,9 +24,8 @@
         },
         "specular_white":
         {
-            "TYPE":"Specular",
-            "RGB":[0.98, 0.98, 0.98],
-            "ROUGHNESS":0.0
+            "TYPE":"Diffuse",
+            "RGB":[0.98, 0.98, 0.98]
         }
     },
     "Camera":
@@ -35,7 +34,7 @@
         "FOVY":45.0,
         "ITERATIONS":5000,
         "DEPTH":8,
-        "FILE":"perfectly_specular",
+        "FILE":"perfectly_diffuse",
         "EYE":[0.0,5.0,10.5],
         "LOOKAT":[0.0,5.0,0.0],
         "UP":[0.0,1.0,0.0]
@@ -86,10 +85,10 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"specular_white",
-            "TRANS":[0.0,4.0,0.0],
+            "MATERIAL":"diffuse_white",
+            "TRANS":[-1.0,4.0,-1.0],
             "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[4.5,4.5,4.5]
+            "SCALE":[3.0,3.0,3.0]
         }
     ]
 }

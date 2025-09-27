@@ -60,7 +60,7 @@
         "FOVY":60.0,
         "ITERATIONS":5000,
         "DEPTH":32,
-        "FILE":"compaction_test",
+        "FILE":"path_discarding",
         "EYE":[0.0,3.0,15.0],
         "LOOKAT":[0.0,2.0,0.0],
         "UP":[0.0,1.0,0.0]
