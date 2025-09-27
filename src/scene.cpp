@@ -35,6 +35,7 @@ Settings Scene::load_from_json(std::string_view scene_file) {
     } else if (object["TYPE"] == "Emitting") {
       new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
     } else if (object["TYPE"] == "Specular") {
+      new_material = Specular{.color = color_value};
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());

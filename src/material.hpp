@@ -15,4 +15,8 @@ struct Diffuse {
   glm::vec3 color;
 };
 
-using Material = cuda::std::variant<UnknownMat, Light, Diffuse>;
+struct Specular {
+  glm::vec3 color;
+};
+
+using Material = cuda::std::variant<UnknownMat, Light, Diffuse, Specular>;

@@ -56,6 +56,16 @@ __host__ __device__ inline void sample_material(int index,
                   .origin = og_ray.get_point(hit.t),
                   .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
               };
+            },
+
+            [=](Specular specular) {
+              Ray og_ray = og_segment.ray;
+
+              segments[index].throughput *= specular.color;
+              segments[index].ray = {
+                  .origin = og_ray.get_point(hit.t),
+                  .direction = glm::normalize(glm::reflect(og_ray.direction, hit.normal)),
+              };
             }},
       material);
 }
