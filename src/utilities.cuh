@@ -28,7 +28,7 @@ inline void check_cuda_error(const char* message,
 
 /// Helper for usage in `cuda::std::visit`. Taken from
 /// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
-template <class... Ts>
+template <typename... Ts>
 struct Match : Ts... {
   using Ts::operator()...;
 };

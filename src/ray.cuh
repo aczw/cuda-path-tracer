@@ -10,7 +10,8 @@ struct Ray {
   glm::vec3 origin;
   glm::vec3 direction;
 
+  /// Assumes that direction is normalized.
   __host__ __device__ inline glm::vec3 get_point(float t) const {
-    return origin + (t - EPSILON) * glm::normalize(direction);
+    return origin + (t - EPSILON) * direction;
   }
 };
