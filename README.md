@@ -14,6 +14,9 @@ CUDA Path Tracer
 
 # CUDA Path Tracer
 
+> [!NOTE]
+> I've significantly updated and refactored the base homework code. See instructions for [building](#building) below, as well as the [file list](#file-list).
+
 ## Program structure
 
 - Path tracer is run for a certain number of iterations. This is determined by the scene file we're currently running
@@ -25,6 +28,10 @@ CUDA Path Tracer
   - Determine the next ray to travel to
 - We exit the loop if we've either hit the max accepted depth (this should be kinda rare) or we've stream compacted away all paths (more likely to occur)
 - Gather pixel color from each path by appending it to all previous contributions and display it
+
+### File list
+
+To better understand the role each file plays, here I offer a description of each.
 
 ## Features
 
