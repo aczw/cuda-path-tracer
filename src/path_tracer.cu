@@ -5,13 +5,11 @@
 #include "tone_mapping.cuh"
 
 #include <cuda.h>
-#include <thrust/execution_policy.h>
 #include <thrust/partition.h>
 #include <thrust/zip_function.h>
 
 #include <cmath>
 #include <cstdio>
-#include <numbers>
 
 /// Kernel that writes the image to the OpenGL PBO directly.
 __global__ void kern_send_to_pbo(int num_pixels,
@@ -154,41 +152,12 @@ __global__ void kern_sample(int num_paths,
     return;
   }
 
-  cuda::std::visit(
-      Match{
-          [=](OutOfBounds) {},
-          [=](Hit hit) {
-            Material material = material_list[hit.material_id];
-            PathSegment segment = segments[index];
-
-            if (material.emission > 0.f) {
-              segments[index].radiance = material.emission;
-            } else {
-              Ray og_ray = segment.ray;
-              glm::vec3 omega_o = -og_ray.direction;
-
-              // Calculate Lambertian term, which is also is cos(theta)
-              float lambert = glm::abs(glm::dot(hit.normal, omega_o));
-
-              // BSDF for perfectly diffuse materials is given by (albedo / pi)
-              glm::vec3 bsdf = material.color * static_cast<float>(std::numbers::inv_pi);
-
-              // PDF for cosine-weighted hemisphere sampling
-              float pdf = lambert * std::numbers::inv_pi;
-
-              segments[index].throughput *= bsdf * lambert / pdf;
-
-              auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
-
-              // Determine next ray
-              segments[index].ray = {
-                  .origin = og_ray.get_point(hit.t),
-                  .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
-              };
-            }
-          },
-      },
-      intersections[index]);
+  cuda::std::visit(Match{[](OutOfBounds) {},
+                         [=](Hit hit) {
+                           sample_material(index, curr_iter, curr_depth,
+                                           material_list[hit.material_id], hit, segments);
+                         }},
+                   intersections[index]);
 }
 
 /// Add the current iteration's output to the overall image.
@@ -211,7 +180,7 @@ struct IsNotOutOfBounds {
 
 struct IsNotLightIsect {
   __host__ __device__ bool operator()(Intersection, PathSegment segment) {
-    return !(glm::length(segment.radiance) > 0.f);
+    return segment.radiance == 0.f;
   }
 };
 

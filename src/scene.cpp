@@ -24,22 +24,21 @@ Settings Scene::load_from_json(std::string_view scene_file) {
     const auto& name = item.key();
     const auto& object = item.value();
 
-    // Value initialize object (zero fields out)
-    Material new_material{};
+    Material new_material;
 
     // Color is common across all materials
     const auto& color = object["RGB"];
-    new_material.color = glm::vec3(color[0], color[1], color[2]);
+    glm::vec3 color_value = glm::vec3(color[0], color[1], color[2]);
 
-    // TODO: handle materials loading differently
     if (object["TYPE"] == "Diffuse") {
+      new_material = Diffuse{.color = color_value};
     } else if (object["TYPE"] == "Emitting") {
-      new_material.emission = object["EMITTANCE"];
+      new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
     } else if (object["TYPE"] == "Specular") {
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());
-    material_list.emplace_back(new_material);
+    material_list.emplace_back(std::move(new_material));
   }
 
   // Parse geometry data
