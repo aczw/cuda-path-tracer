@@ -1,4 +1,3 @@
-#include "hit.cuh"
 #include "intersection.cuh"
 #include "path_segment.hpp"
 #include "path_tracer.hpp"
@@ -6,17 +5,9 @@
 #include "tone_mapping.cuh"
 
 #include <cuda.h>
-#include <cuda/std/limits>
-#include <cuda/std/optional>
-#include <cuda/std/variant>
 #include <thrust/execution_policy.h>
 #include <thrust/partition.h>
-#include <thrust/random.h>
-#include <thrust/remove.h>
 #include <thrust/zip_function.h>
-
-#include <glm/glm.hpp>
-#include <glm/gtx/norm.hpp>
 
 #include <cmath>
 #include <cstdio>
@@ -52,14 +43,8 @@ __global__ void kern_send_to_pbo(int num_pixels,
   pbo[index].z = color.z;
 }
 
-/**
- * Generate `PathSegment`s with rays from the camera through the screen into the
- * scene, which is the first bounce of rays.
- *
- * Antialiasing - add rays for sub-pixel sampling
- * motion blur - jitter rays "in time"
- * lens effect - jitter ray origin positions based on a lens
- */
+/// Generate `PathSegment`s with rays from the camera through the screen into the
+/// scene, which is the first bounce of rays.
 __global__ void kern_gen_rays_from_cam(int num_pixels,
                                        Camera camera,
                                        int curr_iter,
@@ -98,17 +83,15 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
   // Initialize path segment
   path_segments[index] = {
       .ray = ray,
-      .radiance = glm::vec3(),
       .throughput = glm::vec3(1.f),
+      .radiance = 0.f,
       .pixel_index = index,
       .remaining_bounces = max_depth,
   };
 }
 
-/**
- * Generates intersections only. Sampling new rays from this intersection is handled in
- * another kernel down the line.
- */
+/// Finds the intersection with scene geometry, if any. Sampling new rays from these
+/// results is handled in another kernel down the line.
 __global__ void kern_find_isects(int num_paths,
                                  Geometry* geometry_list,
                                  int geometry_list_size,
@@ -122,57 +105,41 @@ __global__ void kern_find_isects(int num_paths,
   }
 
   Ray path_ray = segments[path_index].ray;
-
+  Intersection isect = OutOfBounds{.prev_material_id = get_material_id(intersections[path_index])};
   float t_min = cuda::std::numeric_limits<float>::max();
-  int hit_geometry_index = -1;
-  glm::vec3 surface_normal;
 
   // Naively parse through global geometry
   // TODO(aczw): use better intersection algorithm i.e. acceleration structures
   for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
-    Geometry geom = geometry_list[geometry_index];
-    HitResult result;
+    Geometry geometry = geometry_list[geometry_index];
+    cuda::std::optional<Hit> hit_opt;
 
-    switch (geom.type) {
+    switch (geometry.type) {
       case Geometry::Type::Cube:
-        result = test_cube_hit(geom, path_ray);
+        hit_opt = test_cube_hit(geometry, path_ray);
         break;
 
       case Geometry::Type::Sphere:
-        result = test_sphere_hit(geom, path_ray);
+        hit_opt = test_sphere_hit(geometry, path_ray);
         break;
 
       default:
         break;
     }
 
-    // Discovered a closer object, record it
-    if (result.has_value() && t_min > result->t) {
-      t_min = result->t;
-      hit_geometry_index = geometry_index;
-      surface_normal = result->surface_normal;
+    // Ray did not hit this geometry
+    if (!hit_opt) {
+      continue;
+    }
+
+    // Discovered a closer object, save it
+    if (t_min > hit_opt->t) {
+      isect = hit_opt.value();
+      t_min = hit_opt->t;
     }
   }
 
-  // Check whether we hit any geometry at all
-  if (hit_geometry_index == -1) {
-    intersections[path_index] = OutOfBounds{};
-  } else {
-    char material_id = geometry_list[hit_geometry_index].material_id;
-
-    if (const Material material = material_list[material_id]; material.emission > 0.f) {
-      intersections[path_index] = HitLight{
-          .material_id = material_id,
-          .emission = material.emission,
-      };
-    } else {
-      intersections[path_index] = Intermediate{
-          .material_id = material_id,
-          .t = t_min,
-          .surface_normal = surface_normal,
-      };
-    }
-  }
+  intersections[path_index] = std::move(isect);
 }
 
 __global__ void kern_sample(int num_paths,
@@ -190,46 +157,41 @@ __global__ void kern_sample(int num_paths,
   cuda::std::visit(
       Match{
           [=](OutOfBounds) {},
-
-          [=](HitLight light) {
-            segments[index].radiance = light.emission * segments[index].throughput;
-          },
-
-          [=](Intermediate intm) {
-            Material material = material_list[intm.material_id];
+          [=](Hit hit) {
+            Material material = material_list[hit.material_id];
             PathSegment segment = segments[index];
-            Ray ray = segment.ray;
 
-            glm::vec3 omega_o = -ray.direction;
+            if (material.emission > 0.f) {
+              segments[index].radiance = material.emission;
+            } else {
+              Ray og_ray = segment.ray;
+              glm::vec3 omega_o = -og_ray.direction;
 
-            // Lambertian term is cos_theta in this case
-            float lambert = glm::abs(glm::dot(intm.surface_normal, omega_o));
+              // Calculate Lambertian term, which is also is cos(theta)
+              float lambert = glm::abs(glm::dot(hit.normal, omega_o));
 
-            // Calculate simple Lambertian lighting
-            glm::vec3 bsdf = material.color * static_cast<float>(std::numbers::inv_pi);
+              // BSDF for perfectly diffuse materials is given by (albedo / pi)
+              glm::vec3 bsdf = material.color * static_cast<float>(std::numbers::inv_pi);
 
-            // Cosine-weighted hemisphere sampling
-            float pdf = lambert / (glm::length(intm.surface_normal) * glm::length(omega_o)) /
-                        std::numbers::pi;
+              // PDF for cosine-weighted hemisphere sampling
+              float pdf = lambert * std::numbers::inv_pi;
 
-            segments[index].throughput *= bsdf * lambert / pdf;
+              segments[index].throughput *= bsdf * lambert / pdf;
 
-            thrust::default_random_engine rng =
-                make_seeded_random_engine(curr_iter, index, curr_depth);
+              auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
 
-            // Determine next ray
-            segments[index].ray = {
-                .origin = ray.origin + (intm.t * ray.direction) + (EPSILON * intm.surface_normal),
-                .direction = calculate_random_direction_in_hemisphere(intm.surface_normal, rng),
-            };
+              // Determine next ray
+              segments[index].ray = {
+                  .origin = og_ray.get_point(hit.t),
+                  .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
+              };
+            }
           },
       },
       intersections[index]);
 }
 
-/**
- * Add the current iteration's output to the overall image.
- */
+/// Add the current iteration's output to the overall image.
 __global__ void kern_final_gather(int num_pixels, glm::vec3* image, PathSegment* segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
@@ -238,7 +200,7 @@ __global__ void kern_final_gather(int num_pixels, glm::vec3* image, PathSegment*
   }
 
   PathSegment segment = segments[index];
-  image[segment.pixel_index] += segment.radiance;
+  image[segment.pixel_index] += segment.radiance * segment.throughput;
 }
 
 struct IsNotOutOfBounds {
@@ -248,13 +210,13 @@ struct IsNotOutOfBounds {
 };
 
 struct IsNotLightIsect {
-  __host__ __device__ bool operator()(Intersection isect, PathSegment) {
-    return !cuda::std::holds_alternative<HitLight>(isect);
+  __host__ __device__ bool operator()(Intersection, PathSegment segment) {
+    return !(glm::length(segment.radiance) > 0.f);
   }
 };
 
 struct SortByMaterialId {
-  __host__ __device__ bool operator()(auto zip_1, auto zip_2) {
+  __host__ __device__ bool operator()(PathTracer::ZipTuple zip_1, PathTracer::ZipTuple zip_2) {
     return get_material_id(thrust::get<0>(zip_1)) < get_material_id(thrust::get<0>(zip_2));
   }
 };

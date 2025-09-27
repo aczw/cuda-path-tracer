@@ -26,10 +26,7 @@ class PathTracer {
   void initialize();
   void free();
 
-  /**
-   * Wrapper for the `__global__` call that sets up the kernel calls
-   * and performs path tracing for a singular iteration.
-   */
+  /// Runs the path tracer for one iteration i.e. sample.
   void run_iteration(uchar4* pbo, int curr_iter);
 
  private:

@@ -49,34 +49,35 @@ include_directories(${GLM_INCLUDE_DIRS})
 
 set(headers
     src/image.hpp
-    src/sample.cuh
-    src/hit.cuh
     src/glslUtility.hpp
     src/path_tracer.hpp
+    src/sample.cuh
     src/scene.hpp
-    src/path_segment.hpp
-    src/utilities.cuh
-    src/ray.cuh
     src/intersection.cuh
     src/window.hpp
     src/render_context.hpp
     src/camera.hpp
+    
     src/tone_mapping.cuh
     src/material.hpp
+    src/path_segment.hpp
+    src/utilities.cuh
+    src/ray.cuh
 )
 
 set(sources
-    src/main.cpp
     src/image.cpp
-    src/stb.cpp
     src/glslUtility.cpp
     src/path_tracer.cu
-    src/hit.cu
     src/sample.cu
     src/scene.cpp
+    src/intersection.cu
     src/window.cpp
     src/render_context.cpp
     src/camera.cpp
+
+    src/main.cpp
+    src/stb.cpp
 )
 
 set(imgui_headers

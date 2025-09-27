@@ -33,9 +33,7 @@ struct Match : Ts... {
   using Ts::operator()...;
 };
 
-/**
- * Handy-dandy hash function that provides seeds for random number generation.
- */
+/// Handy-dandy hash function that provides seeds for random number generation.
 __host__ __device__ constexpr unsigned int generate_hash(unsigned int a) {
   a = (a + 0x7ed55d16) + (a << 12);
   a = (a ^ 0xc761c23c) ^ (a >> 19);
@@ -56,9 +54,7 @@ __host__ __device__ inline thrust::default_random_engine make_seeded_random_engi
   return thrust::default_random_engine(seed);
 }
 
-/**
- * Divides `a` by `b` and rounds it up to the nearest integer.
- */
+/// Divides `a` by `b` and rounds it up to the nearest integer.
 __host__ __device__ constexpr int divide_ceil(int a, int b) {
   return (a + b - 1) / b;
 };
