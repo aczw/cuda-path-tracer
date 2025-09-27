@@ -15,6 +15,12 @@
 
 class PathTracer {
  public:
+  using PathSegmentPtr = thrust::device_ptr<PathSegment>;
+  using IntersectionPtr = thrust::device_ptr<Intersection>;
+
+  using ZipIteratorTuple = thrust::tuple<IntersectionPtr, PathSegmentPtr>;
+  using ZipTuple = thrust::tuple<Intersection, PathSegment>;
+
   explicit PathTracer(RenderContext* ctx);
 
   void initialize();
@@ -35,14 +41,11 @@ class PathTracer {
   PathSegment* dev_segments;
   Intersection* dev_intersections;
 
-  using PathSegmentPtr = thrust::device_ptr<PathSegment>;
-  using IntersectionPtr = thrust::device_ptr<Intersection>;
   PathSegmentPtr tdp_segments;
   IntersectionPtr tdp_intersections;
 
-  using IteratorTuple = thrust::tuple<IntersectionPtr, PathSegmentPtr>;
-  thrust::zip_iterator<IteratorTuple> zip_begin;
-  thrust::zip_iterator<IteratorTuple> zip_end;
+  thrust::zip_iterator<ZipIteratorTuple> zip_begin;
+  thrust::zip_iterator<ZipIteratorTuple> zip_end;
 
   int num_blocks_64;
   int num_blocks_128;

@@ -64,9 +64,9 @@ bool RenderContext::try_open_scene(std::string_view scene_file) {
 
   gui_data = std::make_unique<GuiData>(GuiData{
       .max_depth = settings.max_depth,
-      .sort_paths_by_material = false,
-      .discard_oob_paths = false,
-      .discard_light_isect_paths = false,
+      .sort_paths_by_material = true,
+      .discard_oob_paths = true,
+      .discard_light_isect_paths = true,
       .stochastic_sampling = true,
       .apply_tone_mapping = false,
   });
