@@ -52,7 +52,7 @@ set(headers
     src/sample.cuh
     src/hit.cuh
     src/glslUtility.hpp
-    src/path_tracer.h
+    src/path_tracer.hpp
     src/scene.hpp
     src/path_segment.hpp
     src/utilities.cuh
@@ -62,6 +62,7 @@ set(headers
     src/render_context.hpp
     src/camera.hpp
     src/tone_mapping.cuh
+    src/material.hpp
 )
 
 set(sources

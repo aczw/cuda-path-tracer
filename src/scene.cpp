@@ -18,29 +18,31 @@ Settings Scene::load_from_json(std::string_view scene_file) {
 
   std::unordered_map<std::string, char> material_name_to_id;
 
+  // Parse material data
   const auto& materials_data = root["Materials"];
   for (const auto& item : materials_data.items()) {
     const auto& name = item.key();
     const auto& object = item.value();
+
+    // Value initialize object (zero fields out)
     Material new_material{};
+
+    // Color is common across all materials
+    const auto& color = object["RGB"];
+    new_material.color = glm::vec3(color[0], color[1], color[2]);
 
     // TODO: handle materials loading differently
     if (object["TYPE"] == "Diffuse") {
-      const auto& col = object["RGB"];
-      new_material.color = glm::vec3(col[0], col[1], col[2]);
     } else if (object["TYPE"] == "Emitting") {
-      const auto& col = object["RGB"];
-      new_material.color = glm::vec3(col[0], col[1], col[2]);
-      new_material.emittance = object["EMITTANCE"];
+      new_material.emission = object["EMITTANCE"];
     } else if (object["TYPE"] == "Specular") {
-      const auto& col = object["RGB"];
-      new_material.color = glm::vec3(col[0], col[1], col[2]);
     }
 
-    material_name_to_id[name] = material_list.size();
+    material_name_to_id[name] = static_cast<char>(material_list.size());
     material_list.emplace_back(new_material);
   }
 
+  // Parse geometry data
   const auto& objects_data = root["Objects"];
   for (const auto& object : objects_data) {
     Geometry new_geometry;
@@ -75,6 +77,7 @@ Settings Scene::load_from_json(std::string_view scene_file) {
     geometry_list.push_back(new_geometry);
   }
 
+  // Parse camera data and other settings
   const auto& camera_data = root["Camera"];
   camera.resolution = glm::ivec2(camera_data["RES"][0], camera_data["RES"][1]);
 

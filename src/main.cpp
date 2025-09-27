@@ -5,7 +5,7 @@
 #include "gui_data.hpp"
 #include "image.hpp"
 #include "path_segment.hpp"
-#include "path_tracer.h"
+#include "path_tracer.hpp"
 #include "render_context.hpp"
 #include "scene.hpp"
 #include "utilities.cuh"
@@ -169,6 +169,8 @@ void render_gui(GuiData* gui_data) {
         ImGui::EndTabItem();
       }
     }
+
+    ImGui::EndTabBar();
   }
   ImGui::End();
 
@@ -181,7 +183,7 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
   GuiData* gui_data = ctx->get_gui_data();
   PathTracer path_tracer(ctx);
 
-  float prev_zoom, prev_theta, prev_phi;
+  float prev_zoom = -1.f, prev_theta = -1.f, prev_phi = -1.f;
   Camera prev_camera = ctx->scene.camera;
   GuiData prev_gui_data = *gui_data;
 

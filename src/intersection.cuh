@@ -12,7 +12,7 @@ struct OutOfBounds {};
 
 struct HitLight {
   char material_id;
-  float emittance;
+  float emission;
 };
 
 struct Intermediate {

@@ -1,7 +1,7 @@
 #include "hit.cuh"
 #include "intersection.cuh"
 #include "path_segment.hpp"
-#include "path_tracer.h"
+#include "path_tracer.hpp"
 #include "sample.cuh"
 #include "tone_mapping.cuh"
 
@@ -160,14 +160,14 @@ __global__ void kern_find_isects(int num_paths,
   } else {
     char material_id = geometry_list[hit_geometry_index].material_id;
 
-    if (const Material material = material_list[material_id]; material.emittance > 0.f) {
+    if (const Material material = material_list[material_id]; material.emission > 0.f) {
       intersections[path_index] = HitLight{
           .material_id = material_id,
-          .emittance = material.emittance,
+          .emission = material.emission,
       };
     } else {
       intersections[path_index] = Intermediate{
-          .material_id = geometry_list[hit_geometry_index].material_id,
+          .material_id = material_id,
           .t = t_min,
           .surface_normal = surface_normal,
       };
@@ -192,7 +192,7 @@ __global__ void kern_sample(int num_paths,
           [=](OutOfBounds) {},
 
           [=](HitLight light) {
-            segments[index].radiance = light.emittance * segments[index].throughput;
+            segments[index].radiance = light.emission * segments[index].throughput;
           },
 
           [=](Intermediate intm) {
