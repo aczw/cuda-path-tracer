@@ -12,8 +12,8 @@
 #include <string>
 #include <unordered_map>
 
-Settings Scene::load_from_json(std::string_view scene_file) {
-  std::ifstream stream(scene_file.data());
+Settings Scene::load_from_json(std::filesystem::path scene_file) {
+  std::ifstream stream(scene_file.string().data());
   nlohmann::json root = nlohmann::json::parse(stream);
 
   std::unordered_map<std::string, char> material_name_to_id;
@@ -109,6 +109,6 @@ Settings Scene::load_from_json(std::string_view scene_file) {
       .max_iterations = camera_data["ITERATIONS"],
       .max_depth = camera_data["DEPTH"],
       .original_camera = camera,
-      .output_image_name = camera_data["FILE"],
+      .scene_name = scene_file.stem().string(),
   };
 };

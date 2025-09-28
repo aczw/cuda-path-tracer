@@ -5,6 +5,7 @@
 
 #include <glm/glm.hpp>
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -25,12 +26,12 @@ struct Settings {
   int max_iterations;
   int max_depth;
   Camera original_camera;
-  std::string output_image_name;
+  std::string scene_name;
 };
 
 class Scene {
  public:
-  Settings load_from_json(std::string_view scene_file);
+  Settings load_from_json(std::filesystem::path scene_file);
 
   Camera camera;
   std::vector<Geometry> geometry_list;

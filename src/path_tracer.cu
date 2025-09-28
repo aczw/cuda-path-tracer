@@ -290,6 +290,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     // - russian roulette
     // - too many bounces within glass
     if (gui_data->discard_light_isect_paths) {
+      // TODO(aczw): overhead of partitioning zip iterator vs. just path segments? Intersections
+      // get reset at the end of this while loop anyway.
       zip_end = thrust::partition(zip_begin, zip_begin + num_paths, not_light_isect);
       num_paths = thrust::distance(zip_begin, zip_end);
     }
@@ -297,8 +299,6 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     if (curr_depth == max_depth || num_paths == 0) {
       break;
     }
-
-    gui_data->max_depth = curr_depth;
   }
 
   // Assemble this iteration and apply it to the image

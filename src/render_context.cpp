@@ -21,13 +21,12 @@ std::string get_current_time() {
 
 RenderContext::RenderContext() : start_time(get_current_time()), curr_iteration(0) {}
 
-bool RenderContext::try_open_scene(std::string_view scene_file) {
-  std::cout << std::format("[Scene] Opening \"{}\"...", scene_file) << std::endl;
+bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
+  std::string file_name = scene_file.filename().string();
+  std::cout << std::format("[Scene] Opening \"{}\"", file_name) << std::endl;
 
-  std::string_view extension = scene_file.substr(scene_file.find_last_of('.'));
-
-  if (extension != ".json") {
-    std::cerr << std::format("[Scene] Error, \"{}\" is not a JSON file", scene_file) << std::endl;
+  if (scene_file.extension() != ".json") {
+    std::cerr << std::format("[Scene] Error: \"{}\" is not a JSON file", file_name) << std::endl;
     return false;
   }
 
@@ -63,7 +62,7 @@ bool RenderContext::try_open_scene(std::string_view scene_file) {
   display_image = 0;
 
   gui_data = std::make_unique<GuiData>(GuiData{
-      .max_depth = settings.max_depth,
+      .settings = &settings,
       .sort_paths_by_material = true,
       .discard_oob_paths = true,
       .discard_light_isect_paths = true,
@@ -89,7 +88,7 @@ void RenderContext::save_image(Image::Format format) const {
   }
 
   std::string base_name =
-      std::format("{}_{}_{}samples", settings.output_image_name, start_time, num_samples);
+      std::format("{}_{}_{}samples", settings.scene_name, start_time, num_samples);
 
   switch (format) {
     case Image::Format::PNG:

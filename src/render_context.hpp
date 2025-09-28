@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -25,7 +26,7 @@ class RenderContext {
  public:
   RenderContext();
 
-  bool try_open_scene(std::string_view scene_file);
+  bool try_open_scene(std::filesystem::path scene_file);
   void save_image(Image::Format format = Image::Format::PNG) const;
 
   /// Convenience getter for camera width.

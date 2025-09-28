@@ -147,19 +147,24 @@ void render_gui(GuiData* gui_data) {
 
   ImGui::Begin("Info & Configuration");
   {
-    ImGui::Text("Depth: %d", gui_data->max_depth);
+    Settings* settings = gui_data->settings;
+    ImGui::Text("Scene: \"%s\"", settings->scene_name.c_str());
+    ImGui::Text("Max iterations: %d", settings->max_iterations);
+    ImGui::Text("Max depth: %d", settings->max_depth);
 
     float fps = ImGui::GetIO().Framerate;
     ImGui::Text("FPS: %.2f (%.2f ms)", fps, 1000.0f / fps);
 
-    ImGui::Separator();
-
     if (ImGui::BeginTabBar("Configuration")) {
       if (ImGui::BeginTabItem("Performance")) {
         ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
-        ImGui::Checkbox("Discard paths that went out of bounds", &gui_data->discard_oob_paths);
-        ImGui::Checkbox("Discard paths that intersected with a light",
-                        &gui_data->discard_light_isect_paths);
+
+        {
+          ImGui::Text("Discard paths that:");
+          ImGui::Checkbox("Traveled out of bounds", &gui_data->discard_oob_paths);
+          ImGui::Checkbox("Intersected with a light", &gui_data->discard_light_isect_paths);
+        }
+
         ImGui::EndTabItem();
       }
 
