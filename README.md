@@ -56,9 +56,17 @@ Then, the overall throughput contribution for this intersection is given by `bsd
 
 5000 iterations.
 
-#### Perfectly specular
+#### Perfectly specular dielectrics
 
-#### Perfectly transmissive
+Prior to achieving dieletrics, I first had to write the BRDF and BTDF components. Although these materials can't exist in real life, they still look "realistic" and I created these test scenes to check my implementation:
+
+- Complete reflection
+- Complete transmission
+
+Resources used:
+
+- https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission
+- https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF
 
 ### Discarding paths
 

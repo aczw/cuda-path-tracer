@@ -59,7 +59,7 @@ __host__ __device__ inline void sample_material(int index,
             };
           },
 
-          [=](Specular specular) {
+          [=](PureReflection specular) {
             Ray og_ray = og_segment.ray;
 
             segments[index].throughput *= specular.color;
@@ -69,7 +69,7 @@ __host__ __device__ inline void sample_material(int index,
             };
           },
 
-          [=](Transmissive transmissive) {
+          [=](PureTransmission transmissive) {
             Ray og_ray = og_segment.ray;
 
             // GLSL/GLM refract expects the IOR ratio to be incident over target, so

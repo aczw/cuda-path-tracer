@@ -15,11 +15,11 @@ struct Diffuse {
   glm::vec3 color;
 };
 
-struct Specular {
+struct PureReflection {
   glm::vec3 color;
 };
 
-struct Transmissive {
+struct PureTransmission {
   glm::vec3 color;
 
   /// Stores the relative index of refraction (IOR) of this material
@@ -27,4 +27,4 @@ struct Transmissive {
   float eta;
 };
 
-using Material = cuda::std::variant<UnknownMat, Light, Diffuse, Specular, Transmissive>;
+using Material = cuda::std::variant<UnknownMat, Light, Diffuse, PureReflection, PureTransmission>;

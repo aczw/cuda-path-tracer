@@ -22,11 +22,10 @@
             "TYPE":"Diffuse",
             "RGB":[0.35, 0.85, 0.35]
         },
-        "transmissive_white":
+        "reflection_white":
         {
-            "TYPE":"Transmissive",
-            "RGB":[1.0, 1.0, 1.0],
-            "ETA": 1.55
+            "TYPE":"PureReflection",
+            "RGB":[0.98, 0.98, 0.98]
         }
     },
     "Camera":
@@ -35,7 +34,7 @@
         "FOVY":45.0,
         "ITERATIONS":5000,
         "DEPTH":8,
-        "FILE":"perfectly_transmissive",
+        "FILE":"pure_reflection",
         "EYE":[0.0,5.0,10.5],
         "LOOKAT":[0.0,5.0,0.0],
         "UP":[0.0,1.0,0.0]
@@ -86,10 +85,10 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"transmissive_white",
+            "MATERIAL":"reflection_white",
             "TRANS":[0.0,4.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[5.0,5.0,5.0]
+            "SCALE":[4.5,4.5,4.5]
         }
     ]
 }

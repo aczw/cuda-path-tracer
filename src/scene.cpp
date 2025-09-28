@@ -35,10 +35,10 @@ Settings Scene::load_from_json(std::string_view scene_file) {
       new_material = Diffuse{.color = color_value};
     } else if (material_type == "Emitting") {
       new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
-    } else if (material_type == "Specular") {
-      new_material = Specular{.color = color_value};
-    } else if (material_type == "Transmissive") {
-      new_material = Transmissive{.color = color_value, .eta = object["ETA"]};
+    } else if (material_type == "PureReflection") {
+      new_material = PureReflection{.color = color_value};
+    } else if (material_type == "PureTransmission") {
+      new_material = PureTransmission{.color = color_value, .eta = object["ETA"]};
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());
