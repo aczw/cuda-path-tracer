@@ -37,7 +37,9 @@ To better understand the role each file plays, here I offer a description of eac
 
 Roughly organized in chronological order of when I first implemented it.
 
-### Cosine-weighted hemisphere sampling and Lambertian diffuse materials
+### New materials
+
+#### Cosine-weighted hemisphere sampling and Lambertian diffuse materials
 
 After playing with the base code a bit and getting a sense of the overall project structure, I implemented my first material, a very simple Lambertian diffuse shading model.
 
@@ -53,6 +55,10 @@ Then, the overall throughput contribution for this intersection is given by `bsd
 ![](renders/lambertian_cosine_weighted/cornell.2025-09-23_00-38-16z.5000samp.png)
 
 5000 iterations.
+
+#### Perfectly specular
+
+#### Perfectly transmissive
 
 ### Discarding paths
 

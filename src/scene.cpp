@@ -30,12 +30,15 @@ Settings Scene::load_from_json(std::string_view scene_file) {
     const auto& color = object["RGB"];
     glm::vec3 color_value = glm::vec3(color[0], color[1], color[2]);
 
-    if (object["TYPE"] == "Diffuse") {
+    const auto& material_type = object["TYPE"];
+    if (material_type == "Diffuse") {
       new_material = Diffuse{.color = color_value};
-    } else if (object["TYPE"] == "Emitting") {
+    } else if (material_type == "Emitting") {
       new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
-    } else if (object["TYPE"] == "Specular") {
+    } else if (material_type == "Specular") {
       new_material = Specular{.color = color_value};
+    } else if (material_type == "Transmissive") {
+      new_material = Transmissive{.color = color_value, .eta = object["ETA"]};
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());

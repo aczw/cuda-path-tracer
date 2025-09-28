@@ -42,13 +42,14 @@ __global__ void kern_send_to_pbo(int num_pixels,
 }
 
 /// Generate `PathSegment`s with rays from the camera through the screen into the
-/// scene, which is the first bounce of rays.
-__global__ void kern_gen_rays_from_cam(int num_pixels,
-                                       Camera camera,
-                                       int curr_iter,
-                                       int max_depth,
-                                       PathSegment* path_segments,
-                                       bool perform_stochastic_sampling) {
+/// scene, which is the first bounce of rays. Also sets intersections to a valid state.
+__global__ void kern_init_segments_isects(int num_pixels,
+                                          Camera camera,
+                                          int curr_iter,
+                                          int max_depth,
+                                          PathSegment* path_segments,
+                                          Intersection* intersections,
+                                          bool perform_stochastic_sampling) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -86,6 +87,9 @@ __global__ void kern_gen_rays_from_cam(int num_pixels,
       .pixel_index = index,
       .remaining_bounces = max_depth,
   };
+
+  // Initialize intersection to something absurd
+  intersections[index] = OutOfBounds{.prev_material_id = -1};
 }
 
 /// Finds the intersection with scene geometry, if any. Sampling new rays from these
@@ -231,7 +235,6 @@ void PathTracer::initialize() {
 }
 
 void PathTracer::free() {
-  // No-op if dev_image is null
   cudaFree(dev_image);
   cudaFree(dev_segments);
   cudaFree(dev_geometry_list);
@@ -251,10 +254,10 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
   GuiData* gui_data = ctx->get_gui_data();
 
-  // Initialize first batch of path segments
-  kern_gen_rays_from_cam<<<num_blocks_64, BLOCK_SIZE_64>>>(
-      num_pixels, camera, curr_iter, max_depth, dev_segments, gui_data->stochastic_sampling);
-  check_cuda_error("kern_gen_rays_from_cam");
+  kern_init_segments_isects<<<num_blocks_64, BLOCK_SIZE_64>>>(
+      num_pixels, camera, curr_iter, max_depth, dev_segments, dev_intersections,
+      gui_data->stochastic_sampling);
+  check_cuda_error("kern_init_segments_isects");
 
   int curr_depth = 0;
   int num_paths = num_pixels;

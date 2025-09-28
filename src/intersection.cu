@@ -86,6 +86,8 @@ __host__ __device__ cuda::std::optional<Hit> test_sphere_hit(Geometry sphere, Ra
     t = glm::min(t1, t2);
     hit.surface = Surface::Outside;
   } else {
+    // Not sure if this takes into account intersections w.r.t. the tangent
+    // of the sphere. Can't just assume we're inside the sphere?
     t = glm::max(t1, t2);
     hit.surface = Surface::Inside;
   }
@@ -97,10 +99,9 @@ __host__ __device__ cuda::std::optional<Hit> test_sphere_hit(Geometry sphere, Ra
   hit.normal = glm::normalize(glm::vec3(sphere.inv_transpose * glm::vec4(obj_space_point, 0.f)));
   hit.material_id = sphere.material_id;
 
-  // TODO(aczw): is this necessary...
-  // if (hit.surface == Surface::Inside) {
-  //   hit.normal = -hit.normal;
-  // }
+  if (hit.surface == Surface::Inside) {
+    hit.normal = -hit.normal;
+  }
 
   return hit;
 }
