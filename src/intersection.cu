@@ -147,7 +147,7 @@ __global__ void find_intersections(int num_paths,
         break;
 
       default:
-        // Should not be possible
+        // Unreachable
         return;
     }
 

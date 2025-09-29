@@ -29,13 +29,6 @@ inline void check_cuda_error(const char* message,
   }
 }
 
-/// Helper for usage in `cuda::std::visit`. Taken from
-/// https://en.cppreference.com/w/cpp/utility/variant/visit2.html#Example
-template <typename... Ts>
-struct Match : Ts... {
-  using Ts::operator()...;
-};
-
 /// Handy-dandy hash function that provides seeds for random number generation.
 __host__ __device__ constexpr unsigned int generate_hash(unsigned int a) {
   a = (a + 0x7ed55d16) + (a << 12);

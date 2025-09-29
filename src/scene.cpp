@@ -24,23 +24,35 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     const auto& name = item.key();
     const auto& object = item.value();
 
-    Material new_material = UnknownMat{};
+    Material new_material = {.type = Material::Type::Unknown};
 
     // Color is common across all materials
-    const auto& color = object["RGB"];
-    glm::vec3 color_value = glm::vec3(color[0], color[1], color[2]);
+    const auto& color_value = object["RGB"];
+    glm::vec3 color = glm::vec3(color_value[0], color_value[1], color_value[2]);
 
     const auto& material_type = object["TYPE"];
     if (material_type == "Diffuse") {
-      new_material = Diffuse{.color = color_value};
+      new_material = {.type = Material::Type::Diffuse, .color = color};
     } else if (material_type == "Emitting") {
-      new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
+      new_material = {
+          .type = Material::Type::Light,
+          .color = color,
+          .emission = object["EMITTANCE"],
+      };
     } else if (material_type == "PureReflection") {
-      new_material = PureReflection{.color = color_value};
+      new_material = {.type = Material::Type::PureReflection, .color = color};
     } else if (material_type == "PureTransmission") {
-      new_material = PureTransmission{.color = color_value, .eta = object["ETA"]};
+      new_material = {
+          .type = Material::Type::PureTransmission,
+          .color = color,
+          .eta = object["ETA"],
+      };
     } else if (material_type == "PerfectSpecular") {
-      new_material = PerfectSpecular{.color = color_value, .eta = object["ETA"]};
+      new_material = {
+          .type = Material::Type::PerfectSpecular,
+          .color = color,
+          .eta = object["ETA"],
+      };
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());
