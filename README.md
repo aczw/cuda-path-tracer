@@ -68,6 +68,10 @@ Resources used:
 - https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission
 - https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF
 
+##### Computing the Fresnel reflectance term
+
+Both are implemented. Schlick promises to be faster. Is this true?
+
 Schlick's approximation:
 
 - https://en.wikipedia.org/wiki/Schlick's_approximation

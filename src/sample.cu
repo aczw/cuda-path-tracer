@@ -73,6 +73,31 @@ __host__ __device__ float fresnel_schlick(float cos_theta, float eta) {
   return r_0 + (1.f - r_0) * term * term * term * term * term;
 }
 
+__host__ __device__ float fresnel_unpolarized(float cos_theta_i, float eta) {
+  cos_theta_i = glm::clamp(cos_theta_i, -1.f, 1.f);
+
+  if (cos_theta_i < 0.f) {
+    eta = 1.f / eta;
+    cos_theta_i = -cos_theta_i;
+  }
+
+  float sin_2_theta_i = 1.f - (cos_theta_i * cos_theta_i);
+  float sin_2_theta_t = sin_2_theta_i / (eta * eta);
+
+  // Total internal reflection. As a result, we should only do a reflection
+  if (sin_2_theta_t >= 1.f) {
+    return 1.f;
+  }
+
+  // Calculate cos_theta_t using Snell's law
+  float cos_theta_t = std::sqrt(std::max(0.f, 1.f - sin_2_theta_t));
+
+  float r_parallel = (eta * cos_theta_i - cos_theta_t) / (eta * cos_theta_i + cos_theta_t);
+  float r_perp = (cos_theta_i - eta * cos_theta_t) / (cos_theta_i + eta * cos_theta_t);
+
+  return (r_parallel * r_parallel + r_perp * r_perp) / 2.f;
+}
+
 __host__ __device__ void sample_material(int index,
                                          int curr_iter,
                                          int curr_depth,
@@ -139,7 +164,7 @@ __host__ __device__ void sample_material(int index,
             thrust::uniform_real_distribution<float> uniform_01;
 
             float eta = perf_spec.eta;
-            float refl_term = fresnel_schlick(cos_theta, eta);
+            float refl_term = fresnel_schlick(glm::dot(hit.normal, omega_o), eta);
 
             if (uniform_01(rng) < refl_term) {
               // Reflection
