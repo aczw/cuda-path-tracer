@@ -25,6 +25,11 @@ bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
   std::string file_name = scene_file.filename().string();
   std::cout << std::format("[Scene] Opening \"{}\"", file_name) << std::endl;
 
+  if (!std::filesystem::exists(scene_file)) {
+    std::cerr << std::format("[Scene] Error: \"{}\" does not exist", file_name) << std::endl;
+    return false;
+  }
+
   if (scene_file.extension() != ".json") {
     std::cerr << std::format("[Scene] Error: \"{}\" is not a JSON file", file_name) << std::endl;
     return false;
