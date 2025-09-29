@@ -33,13 +33,54 @@ __host__ __device__ glm::vec3 calculate_random_direction_in_hemisphere(
   return up * normal + std::cos(around) * over * perp_dir_1 + std::sin(around) * over * perp_dir_2;
 }
 
-__host__ __device__ inline void sample_material(int index,
-                                                int curr_iter,
-                                                int curr_depth,
-                                                Material material,
-                                                Hit hit,
-                                                PathSegment* segments) {
+__host__ __device__ Ray find_pure_reflection(Ray og_ray, Hit hit) {
+  return {
+      .origin = og_ray.at(hit.t),
+      .direction = glm::normalize(glm::reflect(og_ray.direction, hit.normal)),
+  };
+}
+
+/// Assumes `eta` parameter ratio is target over incident.
+__host__ __device__ cuda::std::optional<Ray> find_pure_transmission(Ray og_ray,
+                                                                    Hit hit,
+                                                                    float eta) {
+  // GLSL/GLM refract expects the IOR ratio to be incident over target, so
+  // we treat the default as us starting from inside the material
+  if (hit.surface == Surface::Outside) {
+    eta = 1.f / eta;
+  }
+
+  glm::vec3 omega_i = glm::normalize(glm::refract(og_ray.direction, hit.normal, eta));
+
+  // Handle total internal reflection
+  if (omega_i == glm::vec3()) {
+    return {};
+  }
+
+  return Ray{
+      // Need to offset origin by an additional factor
+      .origin = og_ray.at(hit.t) + 0.0001f * og_ray.direction,
+      .direction = omega_i,
+  };
+}
+
+/// Assumes that the other medium we're leaving/entering is always the vacuum.
+__host__ __device__ float fresnel_schlick(float cos_theta, float eta) {
+  float sqrt_r_0 = (eta - 1.f) / (eta + 1.f);
+  float r_0 = sqrt_r_0 * sqrt_r_0;
+  float term = 1.f - cos_theta;
+
+  return r_0 + (1.f - r_0) * term * term * term * term * term;
+}
+
+__host__ __device__ void sample_material(int index,
+                                         int curr_iter,
+                                         int curr_depth,
+                                         Material material,
+                                         Hit hit,
+                                         PathSegment* segments) {
   PathSegment og_segment = segments[index];
+  Ray og_ray = og_segment.ray;
 
   cuda::std::visit(
       Match{
@@ -54,7 +95,6 @@ __host__ __device__ inline void sample_material(int index,
           },
 
           [=](Diffuse diffuse) {
-            Ray og_ray = og_segment.ray;
             glm::vec3 omega_o = -og_ray.direction;
 
             // Calculate Lambertian term, which is also is cos(theta)
@@ -72,45 +112,59 @@ __host__ __device__ inline void sample_material(int index,
 
             // Determine next ray
             segments[index].ray = {
-                .origin = og_ray.get_point(hit.t),
+                .origin = og_ray.at(hit.t),
                 .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
             };
           },
 
-          [=](PureReflection specular) {
-            Ray og_ray = og_segment.ray;
-
-            segments[index].throughput *= specular.color;
-            segments[index].ray = {
-                .origin = og_ray.get_point(hit.t),
-                .direction = glm::normalize(glm::reflect(og_ray.direction, hit.normal)),
-            };
-          },
+          [=](PureReflection specular) { segments[index].ray = find_pure_reflection(og_ray, hit); },
 
           [=](PureTransmission transmissive) {
-            Ray og_ray = og_segment.ray;
+            cuda::std::optional<Ray> new_ray_opt =
+                find_pure_transmission(og_ray, hit, transmissive.eta);
 
-            // GLSL/GLM refract expects the IOR ratio to be incident over target, so
-            // we treat the default as us starting from inside the material
-            float eta = transmissive.eta;
-            if (hit.surface == Surface::Outside) {
-              eta = 1.f / eta;
-            }
-
-            glm::vec3 result = glm::refract(og_ray.direction, hit.normal, eta);
-
-            // Handle total internal reflection
-            if (result == glm::vec3()) {
+            // Total internal reflection
+            if (!new_ray_opt) {
               return;
             }
 
-            segments[index].throughput *= transmissive.color;
-            segments[index].ray = {
-                // Need to offset origin by an additional factor. Otherwise, it appears that
-                // the new origin isn't fully inside the material yet.
-                .origin = og_ray.get_point(hit.t) + 0.0001f * og_ray.direction,
-                .direction = glm::normalize(result),
-            };
+            segments[index].ray = new_ray_opt.value();
+          },
+
+          [=](PerfectSpecular perf_spec) {
+            glm::vec3 omega_o = -og_ray.direction;
+            float cos_theta = glm::abs(glm::dot(hit.normal, omega_o));
+
+            auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+            thrust::uniform_real_distribution<float> uniform_01;
+
+            float eta = perf_spec.eta;
+            float refl_term = fresnel_schlick(cos_theta, eta);
+
+            if (uniform_01(rng) < refl_term) {
+              // Reflection
+              glm::vec3 bsdf = glm::vec3(refl_term / cos_theta);
+
+              // Divide by PDF = Fresnel reflectance term
+              segments[index].throughput *= bsdf / refl_term;
+              segments[index].ray = find_pure_reflection(og_ray, hit);
+            } else {
+              // Transmission
+              float trans_term = 1.f - refl_term;
+
+              cuda::std::optional<Ray> new_ray_opt = find_pure_transmission(og_ray, hit, eta);
+
+              // Total internal reflection
+              if (!new_ray_opt) {
+                return;
+              }
+
+              glm::vec3 bsdf = glm::vec3(trans_term / cos_theta);
+
+              // Divide by PDF = Fresnel transmission term
+              segments[index].throughput *= bsdf / trans_term;
+              segments[index].ray = new_ray_opt.value();
+            }
           },
       },
       material);

@@ -3,9 +3,11 @@
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 
+#include <filesystem>
 #include <format>
 #include <iostream>
 #include <source_location>
+#include <string>
 
 #define EPSILON 0.00001f
 
@@ -20,7 +22,8 @@ inline void check_cuda_error(const char* message,
       return;
     }
 
-    std::cerr << std::format("[CUDA error] {}({}): {}: {}", loc.file_name(), loc.line(), message,
+    std::string file_name = std::filesystem::path(loc.file_name()).filename().string();
+    std::cerr << std::format("[CUDA] Error at {}({}): {}: {}", file_name, loc.line(), message,
                              cudaGetErrorString(error))
               << std::endl;
   }

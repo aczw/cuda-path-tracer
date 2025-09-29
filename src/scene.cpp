@@ -24,7 +24,7 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     const auto& name = item.key();
     const auto& object = item.value();
 
-    Material new_material;
+    Material new_material = UnknownMat{};
 
     // Color is common across all materials
     const auto& color = object["RGB"];
@@ -36,9 +36,11 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     } else if (material_type == "Emitting") {
       new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
     } else if (material_type == "PureReflection") {
-      new_material = PureReflection{.color = color_value};
+      new_material = PureReflection{};
     } else if (material_type == "PureTransmission") {
-      new_material = PureTransmission{.color = color_value, .eta = object["ETA"]};
+      new_material = PureTransmission{.eta = object["ETA"]};
+    } else if (material_type == "PerfectSpecular") {
+      new_material = PerfectSpecular{.eta = object["ETA"]};
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());

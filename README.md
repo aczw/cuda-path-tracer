@@ -68,6 +68,12 @@ Resources used:
 - https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission
 - https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF
 
+Schlick's approximation:
+
+- https://en.wikipedia.org/wiki/Schlick's_approximation
+- https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment/
+- https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9
+
 ### Discarding paths
 
 TODO(aczw): use difference as metric to measure how effective sampling methods are?
@@ -134,6 +140,7 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 
 - `PureReflection`
 - `PureTransmission`
+- `PerfectSpecular`
 
 ### Testing
 

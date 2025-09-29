@@ -45,7 +45,7 @@ __host__ __device__ cuda::std::optional<Hit> test_cube_hit(Geometry cube, Ray ra
       hit.surface = Surface::Inside;
     }
 
-    hit.point = glm::vec3(cube.transform * glm::vec4(q.get_point(t_min), 1.f));
+    hit.point = glm::vec3(cube.transform * glm::vec4(q.at(t_min), 1.f));
     hit.normal = glm::normalize(glm::vec3(cube.inv_transpose * glm::vec4(t_min_n, 0.f)));
     hit.t = glm::length(ray.origin - hit.point);
     hit.material_id = cube.material_id;
@@ -92,7 +92,7 @@ __host__ __device__ cuda::std::optional<Hit> test_sphere_hit(Geometry sphere, Ra
     hit.surface = Surface::Inside;
   }
 
-  glm::vec3 obj_space_point = rt.get_point(t);
+  glm::vec3 obj_space_point = rt.at(t);
 
   hit.point = glm::vec3(sphere.transform * glm::vec4(obj_space_point, 1.f));
   hit.t = glm::length(ray.origin - hit.point);
