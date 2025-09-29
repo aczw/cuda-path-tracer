@@ -5,53 +5,45 @@
         {
             "TYPE":"Emitting",
             "RGB":[1.0, 1.0, 1.0],
-            "EMITTANCE":25.0,
-            "ROUGHNESS":1.0
+            "EMITTANCE":25.0
         },
         "warm_spot":
         {
             "TYPE":"Emitting",
             "RGB":[1.0, 0.7, 0.4],
-            "EMITTANCE":15.0,
-            "ROUGHNESS":1.0
+            "EMITTANCE":15.0
         },
         "cool_spot":
         {
             "TYPE":"Emitting",
             "RGB":[0.4, 0.7, 1.0],
-            "EMITTANCE":12.0,
-            "ROUGHNESS":1.0
+            "EMITTANCE":12.0
         },
         "distant_light":
         {
             "TYPE":"Emitting",
             "RGB":[0.9, 0.9, 1.0],
-            "EMITTANCE":8.0,
-            "ROUGHNESS":1.0
+            "EMITTANCE":8.0
         },
         "floor_gray":
         {
             "TYPE":"Diffuse",
-            "RGB":[0.8, 0.8, 0.8],
-            "ROUGHNESS":1.0
+            "RGB":[0.8, 0.8, 0.8]
         },
         "wall_light":
         {
             "TYPE":"Diffuse",
-            "RGB":[0.9, 0.9, 0.9],
-            "ROUGHNESS":1.0
+            "RGB":[0.9, 0.9, 0.9]
         },
         "high_mirror":
         {
-            "TYPE":"Specular",
-            "RGB":[0.95, 0.95, 0.95],
-            "ROUGHNESS":0.0
+            "TYPE":"PureReflection",
+            "RGB":[0.95, 0.95, 0.95]
         },
         "partial_mirror":
         {
-            "TYPE":"Specular",
-            "RGB":[0.7, 0.8, 0.9],
-            "ROUGHNESS":0.0
+            "TYPE":"PureReflection",
+            "RGB":[0.7, 0.8, 0.9]
         }
     },
     "Camera":
