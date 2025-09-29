@@ -84,11 +84,11 @@
             "SCALE":[0.01,10.0,10.0]
         },
         {
-            "TYPE":"cube",
+            "TYPE":"sphere",
             "MATERIAL":"perfect_specular_white",
             "TRANS":[0.0,4.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
-            "SCALE":[5.0,5.0,5.0]
+            "SCALE":[7.0,7.0,7.0]
         }
     ]
 }

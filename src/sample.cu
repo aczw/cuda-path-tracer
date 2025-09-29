@@ -169,15 +169,12 @@ __host__ __device__ void sample_material(int index,
                          float eta = perf_spec.eta;
                          float refl_term = fresnel_schlick(glm::dot(hit.normal, omega_o), eta);
 
+                         // Either reflection or transmission
                          if (uniform_01(rng) < refl_term) {
-                           // Reflection
                            glm::vec3 bsdf = glm::vec3(refl_term / cos_theta);
-
-                           // Divide by PDF = Fresnel reflectance term
-                           segments[index].throughput *= perf_spec.color * bsdf / refl_term;
+                           segments[index].throughput *= perf_spec.color;
                            segments[index].ray = find_pure_reflection(og_ray, hit);
                          } else {
-                           // Transmission
                            float trans_term = 1.f - refl_term;
 
                            cuda::std::optional<Ray> new_ray_opt =
@@ -189,9 +186,7 @@ __host__ __device__ void sample_material(int index,
                            }
 
                            glm::vec3 bsdf = glm::vec3(trans_term / cos_theta);
-
-                           // Divide by PDF = Fresnel transmission term
-                           segments[index].throughput *= perf_spec.color * bsdf / trans_term;
+                           segments[index].throughput *= perf_spec.color;
                            segments[index].ray = new_ray_opt.value();
                          }
                        },
