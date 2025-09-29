@@ -51,9 +51,9 @@ set(headers
     src/image.hpp
     src/glslUtility.hpp
     src/path_tracer.hpp
-    src/sample.cuh
+    src/sample.hpp
     src/scene.hpp
-    src/intersection.cuh
+    src/intersection.hpp
     src/window.hpp
     src/render_context.hpp
     src/camera.hpp

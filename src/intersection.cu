@@ -1,33 +1,36 @@
-#include "intersection.cuh"
+#include "intersection.hpp"
 
 #include <cuda/std/limits>
 
-__host__ __device__ cuda::std::optional<Hit> test_cube_hit(Geometry cube, Ray ray) {
+__device__ Intersection test_cube_isect(Geometry cube, Ray ray) {
   float t_min = cuda::std::numeric_limits<float>::lowest();
   float t_max = cuda::std::numeric_limits<float>::max();
   glm::vec3 t_min_n;
   glm::vec3 t_max_n;
 
-  Ray q = {
+  Ray obj_ray = {
       .origin = glm::vec3(cube.inv_transform * glm::vec4(ray.origin, 1.f)),
       .direction = glm::normalize(glm::vec3(cube.inv_transform * glm::vec4(ray.direction, 0.f))),
   };
 
   for (int xyz = 0; xyz < 3; ++xyz) {
-    float qdxyz = q.direction[xyz];
+    float qdxyz = obj_ray.direction[xyz];
 
     /*if (glm::abs(qdxyz) > 0.00001f)*/
     {
-      float t1 = (-0.5f - q.origin[xyz]) / qdxyz;
-      float t2 = (+0.5f - q.origin[xyz]) / qdxyz;
+      float t1 = (-0.5f - obj_ray.origin[xyz]) / qdxyz;
+      float t2 = (0.5f - obj_ray.origin[xyz]) / qdxyz;
       float ta = glm::min(t1, t2);
       float tb = glm::max(t1, t2);
+
       glm::vec3 n;
-      n[xyz] = t2 < t1 ? 1 : -1;
+      n[xyz] = t2 < t1 ? 1.f : -1.f;
+
       if (ta > 0.f && ta > t_min) {
         t_min = ta;
         t_min_n = n;
       }
+
       if (tb < t_max) {
         t_max = tb;
         t_max_n = n;
@@ -35,41 +38,45 @@ __host__ __device__ cuda::std::optional<Hit> test_cube_hit(Geometry cube, Ray ra
     }
   }
 
+  Intersection isect;
+
   if (t_max >= t_min && t_max > 0.f) {
-    Hit hit;
-    hit.surface = Surface::Outside;
+    isect.surface = Surface::Outside;
 
     if (t_min <= 0.f) {
       t_min = t_max;
       t_min_n = t_max_n;
-      hit.surface = Surface::Inside;
+      isect.surface = Surface::Inside;
     }
 
-    hit.point = glm::vec3(cube.transform * glm::vec4(q.at(t_min), 1.f));
-    hit.normal = glm::normalize(glm::vec3(cube.inv_transpose * glm::vec4(t_min_n, 0.f)));
-    hit.t = glm::length(ray.origin - hit.point);
-    hit.material_id = cube.material_id;
-
-    return hit;
+    isect.point = glm::vec3(cube.transform * glm::vec4(obj_ray.at(t_min), 1.f));
+    isect.normal = glm::normalize(glm::vec3(cube.inv_transpose * glm::vec4(t_min_n, 0.f)));
+    isect.t = glm::length(ray.origin - isect.point);
+    isect.material_id = cube.material_id;
+  } else {
+    isect.t = -1.f;
   }
 
-  return {};
+  return isect;
 }
 
-__host__ __device__ cuda::std::optional<Hit> test_sphere_hit(Geometry sphere, Ray ray) {
+__device__ Intersection test_sphere_isect(Geometry sphere, Ray ray) {
   static const float radius = 0.5f;
 
-  Ray rt = {
+  Intersection isect;
+  isect.t = -1.f;
+
+  Ray obj_ray = {
       .origin = glm::vec3(sphere.inv_transform * glm::vec4(ray.origin, 1.f)),
       .direction = glm::normalize(glm::vec3(sphere.inv_transform * glm::vec4(ray.direction, 0.f))),
   };
 
-  float vector_dot_direction = glm::dot(rt.origin, rt.direction);
+  float vector_dot_direction = glm::dot(obj_ray.origin, obj_ray.direction);
   float radicand = vector_dot_direction * vector_dot_direction -
-                   (glm::dot(rt.origin, rt.origin) - std::powf(radius, 2));
+                   (glm::dot(obj_ray.origin, obj_ray.origin) - (radius * radius));
 
   if (radicand < 0.f) {
-    return {};
+    return isect;
   }
 
   float square_root = std::sqrt(radicand);
@@ -77,31 +84,86 @@ __host__ __device__ cuda::std::optional<Hit> test_sphere_hit(Geometry sphere, Ra
   float t1 = first_term + square_root;
   float t2 = first_term - square_root;
 
-  Hit hit;
-
   float t = 0.f;
   if (t1 < 0.f && t2 < 0.f) {
-    return {};
+    return isect;
   } else if (t1 > 0.f && t2 > 0.f) {
     t = glm::min(t1, t2);
-    hit.surface = Surface::Outside;
+    isect.surface = Surface::Outside;
   } else {
     // Not sure if this takes into account intersections w.r.t. the tangent
     // of the sphere. Can't just assume we're inside the sphere?
     t = glm::max(t1, t2);
-    hit.surface = Surface::Inside;
+    isect.surface = Surface::Inside;
   }
 
-  glm::vec3 obj_space_point = rt.at(t);
+  glm::vec3 obj_point = obj_ray.at(t);
 
-  hit.point = glm::vec3(sphere.transform * glm::vec4(obj_space_point, 1.f));
-  hit.t = glm::length(ray.origin - hit.point);
-  hit.normal = glm::normalize(glm::vec3(sphere.inv_transpose * glm::vec4(obj_space_point, 0.f)));
-  hit.material_id = sphere.material_id;
+  isect.point = glm::vec3(sphere.transform * glm::vec4(obj_point, 1.f));
+  isect.t = glm::length(ray.origin - isect.point);
+  isect.normal = glm::normalize(glm::vec3(sphere.inv_transpose * glm::vec4(obj_point, 0.f)));
+  isect.material_id = sphere.material_id;
 
-  if (hit.surface == Surface::Inside) {
-    hit.normal = -hit.normal;
+  if (isect.surface == Surface::Inside) {
+    isect.normal = -isect.normal;
   }
 
-  return hit;
+  return isect;
 }
+
+namespace kernel {
+
+__global__ void find_intersections(int num_paths,
+                                   Geometry* geometry_list,
+                                   int geometry_list_size,
+                                   Material* material_list,
+                                   PathSegment* segments,
+                                   Intersection* intersections) {
+  int segment_index = blockIdx.x * blockDim.x + threadIdx.x;
+
+  if (segment_index >= num_paths) {
+    return;
+  }
+
+  Ray prev_ray = segments[segment_index].ray;
+  float t_min = cuda::std::numeric_limits<float>::max();
+
+  Intersection isect;
+  isect.t = -1.f;
+
+  // Naively parse through global geometry
+  // TODO(aczw): use better intersection algorithm i.e. acceleration structures
+  for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
+    Geometry geometry = geometry_list[geometry_index];
+    Intersection curr_isect;
+
+    switch (geometry.type) {
+      case Geometry::Type::Cube:
+        curr_isect = test_cube_isect(geometry, prev_ray);
+        break;
+
+      case Geometry::Type::Sphere:
+        curr_isect = test_sphere_isect(geometry, prev_ray);
+        break;
+
+      default:
+        // Should not be possible
+        return;
+    }
+
+    // Ray did not hit any geometry
+    if (curr_isect.t < 0.f) {
+      continue;
+    }
+
+    // Discovered a closer object, save it
+    if (t_min > curr_isect.t) {
+      t_min = curr_isect.t;
+      isect = curr_isect;
+    }
+  }
+
+  intersections[segment_index] = std::move(isect);
+}
+
+}  // namespace kernel

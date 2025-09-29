@@ -1,23 +1,24 @@
-#include "intersection.cuh"
+#include "intersection.hpp"
 #include "path_segment.hpp"
 #include "path_tracer.hpp"
-#include "sample.cuh"
+#include "sample.hpp"
 #include "tone_mapping.cuh"
 
 #include <cuda.h>
 #include <thrust/partition.h>
-#include <thrust/zip_function.h>
 
 #include <cmath>
 #include <cstdio>
 
-/// Kernel that writes the image to the OpenGL PBO directly.
-__global__ void kern_send_to_pbo(int num_pixels,
-                                 uchar4* pbo,
-                                 int curr_iter,
-                                 glm::vec3* image,
-                                 bool apply_tone_mapping) {
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+namespace kernel {
+
+/// Writes the image to the OpenGL PBO directly.
+__global__ void send_to_pbo(int num_pixels,
+                            uchar4* pbo,
+                            int curr_iter,
+                            glm::vec3* image,
+                            bool apply_tone_mapping) {
+  int index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (index >= num_pixels) {
     return;
@@ -41,16 +42,17 @@ __global__ void kern_send_to_pbo(int num_pixels,
   pbo[index].z = color.z;
 }
 
-/// Generate `PathSegment`s with rays from the camera through the screen into the
-/// scene, which is the first bounce of rays. Also sets intersections to a valid state.
-__global__ void kern_init_segments_isects(int num_pixels,
-                                          Camera camera,
-                                          int curr_iter,
-                                          int max_depth,
-                                          PathSegment* path_segments,
-                                          Intersection* intersections,
-                                          bool perform_stochastic_sampling) {
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+/// Construct first batch of path segments with rays pointing from the camera into the scene.
+///
+/// @note Intersections don't need to be initialized here because they'll be set to a default
+/// and valid value before performing intersection tests.
+__global__ void initialize_segments(int num_pixels,
+                                    int curr_iter,
+                                    int max_depth,
+                                    Camera camera,
+                                    PathSegment* path_segments,
+                                    bool perform_stochastic_sampling) {
+  int index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (index >= num_pixels) {
     return;
@@ -79,7 +81,6 @@ __global__ void kern_init_segments_isects(int num_pixels,
           camera.up * camera.pixel_length.y * (y - static_cast<float>(camera.resolution.y) * 0.5f)),
   };
 
-  // Initialize path segment
   path_segments[index] = {
       .ray = ray,
       .throughput = glm::vec3(1.f),
@@ -87,85 +88,10 @@ __global__ void kern_init_segments_isects(int num_pixels,
       .pixel_index = index,
       .remaining_bounces = max_depth,
   };
-
-  // Initialize intersection to something absurd
-  intersections[index] = OutOfBounds{.prev_material_id = -1};
-}
-
-/// Finds the intersection with scene geometry, if any. Sampling new rays from these
-/// results is handled in another kernel down the line.
-__global__ void kern_find_isects(int num_paths,
-                                 Geometry* geometry_list,
-                                 int geometry_list_size,
-                                 Material* material_list,
-                                 PathSegment* segments,
-                                 Intersection* intersections) {
-  int path_index = blockIdx.x * blockDim.x + threadIdx.x;
-
-  if (path_index >= num_paths) {
-    return;
-  }
-
-  Ray path_ray = segments[path_index].ray;
-  Intersection isect = OutOfBounds{.prev_material_id = get_material_id(intersections[path_index])};
-  float t_min = cuda::std::numeric_limits<float>::max();
-
-  // Naively parse through global geometry
-  // TODO(aczw): use better intersection algorithm i.e. acceleration structures
-  for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
-    Geometry geometry = geometry_list[geometry_index];
-    cuda::std::optional<Hit> hit_opt;
-
-    switch (geometry.type) {
-      case Geometry::Type::Cube:
-        hit_opt = test_cube_hit(geometry, path_ray);
-        break;
-
-      case Geometry::Type::Sphere:
-        hit_opt = test_sphere_hit(geometry, path_ray);
-        break;
-
-      default:
-        break;
-    }
-
-    // Ray did not hit this geometry
-    if (!hit_opt) {
-      continue;
-    }
-
-    // Discovered a closer object, save it
-    if (t_min > hit_opt->t) {
-      isect = hit_opt.value();
-      t_min = hit_opt->t;
-    }
-  }
-
-  intersections[path_index] = std::move(isect);
-}
-
-__global__ void kern_sample(int num_paths,
-                            int curr_iter,
-                            int curr_depth,
-                            Material* material_list,
-                            Intersection* intersections,
-                            PathSegment* segments) {
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-
-  if (index >= num_paths) {
-    return;
-  }
-
-  cuda::std::visit(Match{[](OutOfBounds) {},
-                         [=](Hit hit) {
-                           sample_material(index, curr_iter, curr_depth,
-                                           material_list[hit.material_id], hit, segments);
-                         }},
-                   intersections[index]);
 }
 
 /// Add the current iteration's output to the overall image.
-__global__ void kern_final_gather(int num_pixels, glm::vec3* image, PathSegment* segments) {
+__global__ void final_gather(int num_pixels, glm::vec3* image, PathSegment* segments) {
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -176,10 +102,10 @@ __global__ void kern_final_gather(int num_pixels, glm::vec3* image, PathSegment*
   image[segment.pixel_index] += segment.radiance * segment.throughput;
 }
 
+}  // namespace kernel
+
 struct IsNotOutOfBounds {
-  __host__ __device__ bool operator()(Intersection isect, PathSegment) {
-    return !cuda::std::holds_alternative<OutOfBounds>(isect);
-  }
+  __host__ __device__ bool operator()(Intersection isect, PathSegment) { return isect.t > 0.f; }
 };
 
 struct IsNotLightIsect {
@@ -190,7 +116,7 @@ struct IsNotLightIsect {
 
 struct SortByMaterialId {
   __host__ __device__ bool operator()(PathTracer::ZipTuple zip_1, PathTracer::ZipTuple zip_2) {
-    return get_material_id(thrust::get<0>(zip_1)) < get_material_id(thrust::get<0>(zip_2));
+    return thrust::get<0>(zip_1).material_id < thrust::get<0>(zip_2).material_id;
   }
 };
 
@@ -203,8 +129,10 @@ PathTracer::PathTracer(RenderContext* ctx)
       dev_intersections(nullptr),
       tdp_segments(nullptr),
       tdp_intersections(nullptr),
-      num_blocks_64(divide_ceil(ctx->get_width() * ctx->get_height(), BLOCK_SIZE_64)),
-      num_blocks_128(divide_ceil(ctx->get_width() * ctx->get_height(), BLOCK_SIZE_128)) {}
+      max_depth(ctx->settings.max_depth),
+      num_pixels(ctx->get_width() * ctx->get_height()),
+      num_blocks_64(divide_ceil(num_pixels, BLOCK_SIZE_64)),
+      num_blocks_128(divide_ceil(num_pixels, BLOCK_SIZE_128)) {}
 
 void PathTracer::initialize() {
   const int num_pixels = ctx->get_width() * ctx->get_height();
@@ -212,14 +140,14 @@ void PathTracer::initialize() {
   cudaMalloc(&dev_image, num_pixels * sizeof(glm::vec3));
   cudaMemset(dev_image, 0, num_pixels * sizeof(glm::vec3));
 
-  const std::vector<Geometry>& geometry_list = ctx->scene.geometry_list;
-  cudaMalloc(&dev_geometry_list, geometry_list.size() * sizeof(Geometry));
-  cudaMemcpy(dev_geometry_list, geometry_list.data(), geometry_list.size() * sizeof(Geometry),
+  const std::vector<Geometry>& geometry = ctx->scene.geometry_list;
+  cudaMalloc(&dev_geometry_list, geometry.size() * sizeof(Geometry));
+  cudaMemcpy(dev_geometry_list, geometry.data(), geometry.size() * sizeof(Geometry),
              cudaMemcpyHostToDevice);
 
-  const std::vector<Material>& material_list = ctx->scene.material_list;
-  cudaMalloc(&dev_material_list, material_list.size() * sizeof(Material));
-  cudaMemcpy(dev_material_list, material_list.data(), material_list.size() * sizeof(Material),
+  const std::vector<Material>& materials = ctx->scene.material_list;
+  cudaMalloc(&dev_material_list, materials.size() * sizeof(Material));
+  cudaMemcpy(dev_material_list, materials.data(), materials.size() * sizeof(Material),
              cudaMemcpyHostToDevice);
 
   cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
@@ -248,25 +176,21 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   static const thrust::zip_function not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
   static const thrust::zip_function not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
 
-  const int max_depth = ctx->settings.max_depth;
   const Camera& camera = ctx->scene.camera;
-  const int num_pixels = ctx->get_width() * ctx->get_height();
-
   GuiData* gui_data = ctx->get_gui_data();
+  int geometry_list_size = ctx->scene.geometry_list.size();
 
-  kern_init_segments_isects<<<num_blocks_64, BLOCK_SIZE_64>>>(
-      num_pixels, camera, curr_iter, max_depth, dev_segments, dev_intersections,
-      gui_data->stochastic_sampling);
+  kernel::initialize_segments<<<num_blocks_64, BLOCK_SIZE_64>>>(
+      num_pixels, curr_iter, max_depth, camera, dev_segments, gui_data->stochastic_sampling);
   check_cuda_error("kern_init_segments_isects");
 
   int curr_depth = 0;
   int num_paths = num_pixels;
 
   while (true) {
-    int num_blocks_isects = divide_ceil(num_paths, BLOCK_SIZE_128);
-    kern_find_isects<<<num_blocks_isects, BLOCK_SIZE_128>>>(
-        num_paths, dev_geometry_list, ctx->scene.geometry_list.size(), dev_material_list,
-        dev_segments, dev_intersections);
+    kernel::find_intersections<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
+        num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_segments,
+        dev_intersections);
     check_cuda_error("kern_find_isects");
     curr_depth++;
 
@@ -281,8 +205,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
       thrust::sort(zip_begin, zip_end, SortByMaterialId{});
     }
 
-    const int num_blocks_sample = divide_ceil(num_paths, BLOCK_SIZE_128);
-    kern_sample<<<num_blocks_sample, BLOCK_SIZE_128>>>(
+    kernel::sample<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
         num_paths, curr_iter, curr_depth, dev_material_list, dev_intersections, dev_segments);
     check_cuda_error("kern_sample");
 
@@ -302,11 +225,11 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   }
 
   // Assemble this iteration and apply it to the image
-  kern_final_gather<<<num_blocks_128, BLOCK_SIZE_128>>>(num_pixels, dev_image, dev_segments);
+  kernel::final_gather<<<num_blocks_128, BLOCK_SIZE_128>>>(num_pixels, dev_image, dev_segments);
 
   // Send results to OpenGL buffer for rendering
-  kern_send_to_pbo<<<num_blocks_64, BLOCK_SIZE_64>>>(num_pixels, pbo, curr_iter, dev_image,
-                                                     gui_data->apply_tone_mapping);
+  kernel::send_to_pbo<<<num_blocks_64, BLOCK_SIZE_64>>>(num_pixels, pbo, curr_iter, dev_image,
+                                                        gui_data->apply_tone_mapping);
 
   // Retrieve image from GPU
   cudaMemcpy(ctx->image.data(), dev_image, num_pixels * sizeof(glm::vec3), cudaMemcpyDeviceToHost);

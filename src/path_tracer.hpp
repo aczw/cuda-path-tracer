@@ -1,13 +1,14 @@
 #pragma once
 
 #include "gui_data.hpp"
-#include "intersection.cuh"
+#include "intersection.hpp"
 #include "path_segment.hpp"
 #include "render_context.hpp"
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/tuple.h>
+#include <thrust/zip_function.h>
 
 #include <glm/glm.hpp>
 
@@ -43,6 +44,9 @@ class PathTracer {
 
   thrust::zip_iterator<ZipIteratorTuple> zip_begin;
   thrust::zip_iterator<ZipIteratorTuple> zip_end;
+
+  int max_depth;
+  int num_pixels;
 
   int num_blocks_64;
   int num_blocks_128;
