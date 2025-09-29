@@ -128,6 +128,13 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
 - Updated to C++20.
 
+### Changes to the scene file format
+
+I've removed the `FILE` key from the `Camera` object because I've modified my output image name to reuse the JSON file name. I've also added additional material types:
+
+- `PureReflection`
+- `PureTransmission`
+
 ### Testing
 
 Some other stuff I've changed that should probably be pointed out:
