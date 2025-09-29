@@ -36,11 +36,11 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     } else if (material_type == "Emitting") {
       new_material = Light{.color = color_value, .emission = object["EMITTANCE"]};
     } else if (material_type == "PureReflection") {
-      new_material = PureReflection{};
+      new_material = PureReflection{.color = color_value};
     } else if (material_type == "PureTransmission") {
-      new_material = PureTransmission{.eta = object["ETA"]};
+      new_material = PureTransmission{.color = color_value, .eta = object["ETA"]};
     } else if (material_type == "PerfectSpecular") {
-      new_material = PerfectSpecular{.eta = object["ETA"]};
+      new_material = PerfectSpecular{.color = color_value, .eta = object["ETA"]};
     }
 
     material_name_to_id[name] = static_cast<char>(material_list.size());

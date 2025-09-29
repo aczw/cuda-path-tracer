@@ -107,90 +107,94 @@ __host__ __device__ void sample_material(int index,
   PathSegment og_segment = segments[index];
   Ray og_ray = og_segment.ray;
 
-  cuda::std::visit(
-      Match{
-          [=](UnknownMat) {
-            segments[index].radiance = 1.f;
-            segments[index].throughput = glm::vec3(1.f, 0.f, 1.f);
-          },
+  cuda::std::visit(Match{
+                       [=](UnknownMat) {
+                         segments[index].radiance = 1.f;
+                         segments[index].throughput = glm::vec3(1.f, 0.f, 1.f);
+                       },
 
-          [=](Light light) {
-            segments[index].radiance = light.emission;
-            segments[index].throughput *= light.color;
-          },
+                       [=](Light light) {
+                         segments[index].radiance = light.emission;
+                         segments[index].throughput *= light.color;
+                       },
 
-          [=](Diffuse diffuse) {
-            glm::vec3 omega_o = -og_ray.direction;
+                       [=](Diffuse diffuse) {
+                         glm::vec3 omega_o = -og_ray.direction;
 
-            // Calculate Lambertian term, which is also is cos(theta)
-            float lambert = glm::abs(glm::dot(hit.normal, omega_o));
+                         // Calculate Lambertian term, which is also is cos(theta)
+                         float lambert = glm::abs(glm::dot(hit.normal, omega_o));
 
-            // BSDF for perfectly diffuse materials is given by (albedo / pi)
-            glm::vec3 bsdf = diffuse.color * static_cast<float>(std::numbers::inv_pi);
+                         // BSDF for perfectly diffuse materials is given by (albedo / pi)
+                         glm::vec3 bsdf = diffuse.color * static_cast<float>(std::numbers::inv_pi);
 
-            // PDF for cosine-weighted hemisphere sampling
-            float pdf = lambert * std::numbers::inv_pi;
+                         // PDF for cosine-weighted hemisphere sampling
+                         float pdf = lambert * std::numbers::inv_pi;
 
-            segments[index].throughput *= bsdf * lambert / pdf;
+                         segments[index].throughput *= bsdf * lambert / pdf;
 
-            auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+                         auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
 
-            // Determine next ray
-            segments[index].ray = {
-                .origin = og_ray.at(hit.t),
-                .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
-            };
-          },
+                         // Determine next ray
+                         segments[index].ray = {
+                             .origin = og_ray.at(hit.t),
+                             .direction = calculate_random_direction_in_hemisphere(hit.normal, rng),
+                         };
+                       },
 
-          [=](PureReflection specular) { segments[index].ray = find_pure_reflection(og_ray, hit); },
+                       [=](PureReflection specular) {
+                         segments[index].throughput *= specular.color;
+                         segments[index].ray = find_pure_reflection(og_ray, hit);
+                       },
 
-          [=](PureTransmission transmissive) {
-            cuda::std::optional<Ray> new_ray_opt =
-                find_pure_transmission(og_ray, hit, transmissive.eta);
+                       [=](PureTransmission transmissive) {
+                         cuda::std::optional<Ray> new_ray_opt =
+                             find_pure_transmission(og_ray, hit, transmissive.eta);
 
-            // Total internal reflection
-            if (!new_ray_opt) {
-              return;
-            }
+                         // Total internal reflection
+                         if (!new_ray_opt) {
+                           return;
+                         }
 
-            segments[index].ray = new_ray_opt.value();
-          },
+                         segments[index].throughput *= transmissive.color;
+                         segments[index].ray = new_ray_opt.value();
+                       },
 
-          [=](PerfectSpecular perf_spec) {
-            glm::vec3 omega_o = -og_ray.direction;
-            float cos_theta = glm::abs(glm::dot(hit.normal, omega_o));
+                       [=](PerfectSpecular perf_spec) {
+                         glm::vec3 omega_o = -og_ray.direction;
+                         float cos_theta = glm::abs(glm::dot(hit.normal, omega_o));
 
-            auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
-            thrust::uniform_real_distribution<float> uniform_01;
+                         auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+                         thrust::uniform_real_distribution<float> uniform_01;
 
-            float eta = perf_spec.eta;
-            float refl_term = fresnel_schlick(glm::dot(hit.normal, omega_o), eta);
+                         float eta = perf_spec.eta;
+                         float refl_term = fresnel_schlick(glm::dot(hit.normal, omega_o), eta);
 
-            if (uniform_01(rng) < refl_term) {
-              // Reflection
-              glm::vec3 bsdf = glm::vec3(refl_term / cos_theta);
+                         if (uniform_01(rng) < refl_term) {
+                           // Reflection
+                           glm::vec3 bsdf = glm::vec3(refl_term / cos_theta);
 
-              // Divide by PDF = Fresnel reflectance term
-              segments[index].throughput *= bsdf / refl_term;
-              segments[index].ray = find_pure_reflection(og_ray, hit);
-            } else {
-              // Transmission
-              float trans_term = 1.f - refl_term;
+                           // Divide by PDF = Fresnel reflectance term
+                           segments[index].throughput *= perf_spec.color * bsdf / refl_term;
+                           segments[index].ray = find_pure_reflection(og_ray, hit);
+                         } else {
+                           // Transmission
+                           float trans_term = 1.f - refl_term;
 
-              cuda::std::optional<Ray> new_ray_opt = find_pure_transmission(og_ray, hit, eta);
+                           cuda::std::optional<Ray> new_ray_opt =
+                               find_pure_transmission(og_ray, hit, eta);
 
-              // Total internal reflection
-              if (!new_ray_opt) {
-                return;
-              }
+                           // Total internal reflection
+                           if (!new_ray_opt) {
+                             return;
+                           }
 
-              glm::vec3 bsdf = glm::vec3(trans_term / cos_theta);
+                           glm::vec3 bsdf = glm::vec3(trans_term / cos_theta);
 
-              // Divide by PDF = Fresnel transmission term
-              segments[index].throughput *= bsdf / trans_term;
-              segments[index].ray = new_ray_opt.value();
-            }
-          },
-      },
-      material);
+                           // Divide by PDF = Fresnel transmission term
+                           segments[index].throughput *= perf_spec.color * bsdf / trans_term;
+                           segments[index].ray = new_ray_opt.value();
+                         }
+                       },
+                   },
+                   material);
 }
