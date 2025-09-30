@@ -140,8 +140,6 @@ PathTracer::PathTracer(RenderContext* ctx)
       dev_material_list(nullptr),
       dev_segments(nullptr),
       dev_intersections(nullptr),
-      tdp_segments(nullptr),
-      tdp_intersections(nullptr),
       max_depth(ctx->settings.max_depth),
       num_pixels(ctx->get_width() * ctx->get_height()),
       num_blocks_64(divide_ceil(num_pixels, BLOCK_SIZE_64)),
@@ -164,22 +162,20 @@ void PathTracer::initialize() {
              cudaMemcpyHostToDevice);
 
   cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
-  tdp_segments = thrust::device_ptr<PathSegment>(dev_segments);
-
   cudaMalloc(&dev_intersections, num_pixels * sizeof(Intersection));
-  tdp_intersections = thrust::device_ptr<Intersection>(dev_intersections);
 
-  zip_begin = thrust::make_zip_iterator(tdp_intersections, tdp_segments);
-  zip_end = thrust::make_zip_iterator(tdp_intersections + num_pixels, tdp_segments + num_pixels);
+  // Wrap in thrust::device_ptr first to make Thrust happy
+  begin = thrust::make_zip_iterator(IntersectionThrustPtr(dev_intersections),
+                                    PathSegmentThrustPtr(dev_segments));
 
   check_cuda_error("PathTracer::initialize");
 }
 
 void PathTracer::free() {
   cudaFree(dev_image);
-  cudaFree(dev_segments);
   cudaFree(dev_geometry_list);
   cudaFree(dev_material_list);
+  cudaFree(dev_segments);
   cudaFree(dev_intersections);
 
   check_cuda_error("PathTracer::free");
@@ -192,35 +188,33 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
   kernel::initialize_segments<<<num_blocks_64, BLOCK_SIZE_64>>>(
       num_pixels, curr_iter, max_depth, camera, dev_segments, gui_data->stochastic_sampling);
-  check_cuda_error("kern_init_segments_isects");
+  check_cuda_error("kernel::initialize_segments");
 
   int curr_depth = 0;
   int num_paths = num_pixels;
+  thrust::zip_iterator end = begin + num_pixels;
 
   while (true) {
     kernel::find_intersections<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
         num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_segments,
         dev_intersections);
-    check_cuda_error("kern_find_isects");
+    check_cuda_error("kernel::find_intersections");
     curr_depth++;
 
     // Discard out of bounds intersections. While the goal is to remove "complete" paths,
-    // we don't discard intersections with lights yet because it's required below
+    // we don't discard intersections with lights yet because we need to sample them first below
     if (gui_data->discard_oob_paths) {
-      // int old = num_paths;
-      // std::cout << std::format("[not_oob] before: {}", num_paths);
-      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, op::is_not_oob{});
-      num_paths = thrust::distance(zip_begin, zip_end);
-      // std::cout << std::format(", after: {}, diff: {}\n", num_paths, old - num_paths);
+      end = thrust::partition(begin, end, op::is_not_oob{});
+      num_paths = thrust::distance(begin, end);
     }
 
     if (gui_data->sort_paths_by_material) {
-      thrust::sort(zip_begin, zip_end, op::sort_by_material_id{});
+      thrust::sort(begin, end, op::sort_by_material_id{});
     }
 
     kernel::sample<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
         num_paths, curr_iter, curr_depth, dev_material_list, dev_intersections, dev_segments);
-    check_cuda_error("kern_sample");
+    check_cuda_error("kernel::sample");
 
     // TODO(aczw): stream compact away all of the following:
     // - russian roulette
@@ -228,8 +222,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     if (gui_data->discard_light_isect_paths) {
       // TODO(aczw): overhead of partitioning zip iterator vs. just path segments? Intersections
       // get reset at the end of this while loop anyway.
-      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, op::is_not_light_isect{});
-      num_paths = thrust::distance(zip_begin, zip_end);
+      end = thrust::partition(begin, end, op::is_not_light_isect{});
+      num_paths = thrust::distance(begin, end);
     }
 
     if (curr_depth == max_depth || num_paths == 0) {

@@ -16,11 +16,9 @@
 
 class PathTracer {
  public:
-  using PathSegmentPtr = thrust::device_ptr<PathSegment>;
-  using IntersectionPtr = thrust::device_ptr<Intersection>;
-
-  using ZipIteratorTuple = thrust::tuple<IntersectionPtr, PathSegmentPtr>;
   using ZipTuple = thrust::tuple<Intersection, PathSegment>;
+  using PathSegmentThrustPtr = thrust::device_ptr<PathSegment>;
+  using IntersectionThrustPtr = thrust::device_ptr<Intersection>;
 
   explicit PathTracer(RenderContext* ctx);
 
@@ -39,17 +37,13 @@ class PathTracer {
   PathSegment* dev_segments;
   Intersection* dev_intersections;
 
-  PathSegmentPtr tdp_segments;
-  IntersectionPtr tdp_intersections;
+  /// This will always point to the front of the iterator and can therefore be safely stored.
+  thrust::zip_iterator<thrust::tuple<IntersectionThrustPtr, PathSegmentThrustPtr>> begin;
 
-  thrust::zip_iterator<ZipIteratorTuple> zip_begin;
-  thrust::zip_iterator<ZipIteratorTuple> zip_end;
-
-  int max_depth;
-  int num_pixels;
-
-  int num_blocks_64;
-  int num_blocks_128;
+  const int max_depth;
+  const int num_pixels;
+  const int num_blocks_64;
+  const int num_blocks_128;
 
   static constexpr int BLOCK_SIZE_64 = 64;
   static constexpr int BLOCK_SIZE_128 = 128;
