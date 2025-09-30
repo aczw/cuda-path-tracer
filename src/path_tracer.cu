@@ -92,7 +92,7 @@ __global__ void initialize_segments(int num_pixels,
 
 /// Add the current iteration's output to the overall image.
 __global__ void final_gather(int num_pixels, glm::vec3* image, PathSegment* segments) {
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  int index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (index >= num_pixels) {
     return;
