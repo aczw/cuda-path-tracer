@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cuda/std/optional>
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 
@@ -12,6 +13,10 @@
 #define EPSILON 0.00001f
 
 constexpr bool CHECK_ERRORS = true;
+
+/// Type alias for `cuda::std::optional`. Makes using it much less verbose.
+template <class T>
+using Opt = cuda::std::optional<T>;
 
 inline void check_cuda_error(const char* message,
                              std::source_location loc = std::source_location::current()) {
@@ -54,3 +59,13 @@ __host__ __device__ inline thrust::default_random_engine make_seeded_random_engi
 __host__ __device__ constexpr int divide_ceil(int a, int b) {
   return (a + b - 1) / b;
 };
+
+/// Always assumes an outward-facing normal.
+__host__ __device__ inline float cos_theta(glm::vec3 normal, glm::vec3 omega) {
+  return glm::dot(normal, omega);
+}
+
+/// Always assumes an outward-facing normal.
+__host__ __device__ inline float abs_cos_theta(glm::vec3 normal, glm::vec3 omega) {
+  return glm::abs(cos_theta(normal, omega));
+}

@@ -42,9 +42,7 @@ __device__ Ray find_pure_reflection(Ray og_ray, Intersection isect) {
 }
 
 /// Assumes `eta` parameter ratio is target over incident.
-__device__ cuda::std::optional<Ray> find_pure_transmission(Ray og_ray,
-                                                           Intersection isect,
-                                                           float eta) {
+__device__ Opt<Ray> find_pure_transmission(Ray og_ray, Intersection isect, float eta) {
   // GLSL/GLM refract expects the IOR ratio to be incident over target, so
   // we treat the default as us starting from inside the material
   if (isect.surface == Surface::Outside) {
@@ -144,7 +142,7 @@ __global__ void sample(int num_paths,
       glm::vec3 omega_o = -og_ray.direction;
 
       // Calculate Lambertian term, which is also is cos(theta)
-      float lambert = glm::abs(glm::dot(isect.normal, omega_o));
+      float lambert = glm::abs(cos_theta(isect.normal, omega_o));
 
       // BSDF for perfectly diffuse materials is given by (albedo / pi)
       glm::vec3 bsdf = material.color * static_cast<float>(std::numbers::inv_pi);
@@ -172,9 +170,7 @@ __global__ void sample(int num_paths,
     }
 
     case PureTransmission: {
-      if (cuda::std::optional<Ray> new_ray_opt =
-              find_pure_transmission(og_ray, isect, material.eta);
-          new_ray_opt) {
+      if (Opt<Ray> new_ray_opt = find_pure_transmission(og_ray, isect, material.eta); new_ray_opt) {
         segment.throughput *= material.color;
         segment.ray = new_ray_opt.value();
       } else {
@@ -186,33 +182,41 @@ __global__ void sample(int num_paths,
     }
 
     case PerfectSpecular: {
-      glm::vec3 omega_o = -og_ray.direction;
-      float cos_theta = glm::abs(glm::dot(isect.normal, omega_o));
-
       auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
       thrust::uniform_real_distribution<float> uniform_01;
 
+      glm::vec3 omega_o = -og_ray.direction;
       float eta = material.eta;
-      float refl_term = fresnel_schlick(glm::dot(isect.normal, omega_o), eta);
+
+      float refl_term = fresnel_schlick(cos_theta(isect.normal, omega_o), eta);
+      float trans_term = 1.f - refl_term;
 
       // Either reflection or transmission
       if (uniform_01(rng) < refl_term) {
-        glm::vec3 bsdf = glm::vec3(refl_term / cos_theta);
-        segment.ray = find_pure_reflection(og_ray, isect);
-      } else {
-        float trans_term = 1.f - refl_term;
+        Ray new_ray = find_pure_reflection(og_ray, isect);
+        glm::vec3 omega_i = new_ray.direction;
+        glm::vec3 bsdf = glm::vec3(refl_term / abs_cos_theta(isect.normal, omega_i));
 
-        if (cuda::std::optional<Ray> new_ray_opt = find_pure_transmission(og_ray, isect, eta);
-            new_ray_opt) {
-          glm::vec3 bsdf = glm::vec3(trans_term / cos_theta);
-          segment.ray = new_ray_opt.value();
+        // segment.throughput *= bsdf * material.color / refl_term;
+        // segment.throughput *= abs_cos_theta(isect.normal, omega_i) / refl_term;
+        segment.throughput *= material.color;
+        segment.ray = std::move(new_ray);
+      } else {
+        if (Opt<Ray> new_ray_opt = find_pure_transmission(og_ray, isect, eta); new_ray_opt) {
+          Ray new_ray = new_ray_opt.value();
+          glm::vec3 omega_i = new_ray.direction;
+          glm::vec3 bsdf = glm::vec3(trans_term / abs_cos_theta(isect.normal, omega_o));
+
+          // segment.throughput *= bsdf * material.color / trans_term;
+          // segment.throughput *= abs_cos_theta(isect.normal, omega_i) / trans_term;
+          segment.throughput *= material.color;
+          segment.ray = std::move(new_ray);
         } else {
           // Total internal reflection
           segment.remaining_bounces = 0;
         }
       }
 
-      segment.throughput *= material.color;
       break;
     }
 
