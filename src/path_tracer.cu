@@ -50,8 +50,8 @@ __global__ void initialize_segments(int num_pixels,
                                     int curr_iter,
                                     int max_depth,
                                     Camera camera,
-                                    PathSegment* path_segments,
-                                    bool perform_stochastic_sampling) {
+                                    CameraSettings settings,
+                                    PathSegment* path_segments) {
   int index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (index >= num_pixels) {
@@ -65,7 +65,7 @@ __global__ void initialize_segments(int num_pixels,
   float x = static_cast<float>(index - y * cam_res_x);
 
   // Reduce aliasing via stochastic sampling
-  if (perform_stochastic_sampling) {
+  if (settings.stochastic_sampling) {
     thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, max_depth);
     thrust::uniform_real_distribution<float> uniform_01;
 
@@ -80,6 +80,25 @@ __global__ void initialize_segments(int num_pixels,
           camera.right * camera.pixel_length.x * (x - static_cast<float>(cam_res_x) * 0.5f) -
           camera.up * camera.pixel_length.y * (y - static_cast<float>(camera.resolution.y) * 0.5f)),
   };
+
+  if (settings.depth_of_field && settings.lens_radius > 0.f && settings.focal_distance > 0.f) {
+    thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, max_depth);
+    thrust::uniform_real_distribution<float> uniform_01;
+
+    // Sample point on lens
+    glm::vec2 sample = sample_uniform_disk_concentric(uniform_01(rng), uniform_01(rng));
+    glm::vec2 lens_point = settings.lens_radius * sample;
+
+    // We want the relative distance from the camera to the plane of focus, so it
+    // doesn't matter what sign  the ray direction is
+    float t = settings.focal_distance / glm::abs(ray.direction.z);
+    glm::vec3 focus = ray.at(t);
+
+    // Offset ray origin by lens sample point and adjust direction such that the ray still
+    // intersects with the same point on the plane of focus
+    ray.origin += glm::vec3(lens_point.x, lens_point.y, 0.f);
+    ray.direction = glm::normalize(focus - ray.origin);
+  }
 
   path_segments[index] = {
       .ray = ray,
@@ -187,7 +206,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   int geometry_list_size = ctx->scene.geometry_list.size();
 
   kernel::initialize_segments<<<num_blocks_64, BLOCK_SIZE_64>>>(
-      num_pixels, curr_iter, max_depth, camera, dev_segments, gui_data->stochastic_sampling);
+      num_pixels, curr_iter, max_depth, camera, gui_data->camera, dev_segments);
   check_cuda_error("kernel::initialize_segments");
 
   int curr_depth = 0;

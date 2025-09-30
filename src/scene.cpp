@@ -112,9 +112,9 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
 
   // Calculate FOV based on resolution
   float fov_y = camera_data["FOVY"];
-  float y_scaled = tan(fov_y * (std::numbers::pi / 180));
+  float y_scaled = std::tan(fov_y * (std::numbers::pi / 180));
   float x_scaled = (y_scaled * camera.resolution.x) / camera.resolution.y;
-  float fov_x = (atan(x_scaled) * 180) / std::numbers::pi;
+  float fov_x = (std::atan(x_scaled) * 180) / std::numbers::pi;
   camera.fov = glm::vec2(fov_x, fov_y);
   camera.pixel_length = glm::vec2(2 * x_scaled / static_cast<float>(camera.resolution.x),
                                   2 * y_scaled / static_cast<float>(camera.resolution.y));

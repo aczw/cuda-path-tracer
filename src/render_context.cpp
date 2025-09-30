@@ -68,11 +68,20 @@ bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
 
   gui_data = std::make_unique<GuiData>(GuiData{
       .settings = &settings,
+
       .sort_paths_by_material = true,
       .discard_oob_paths = true,
       .discard_light_isect_paths = true,
-      .stochastic_sampling = true,
+
       .apply_tone_mapping = false,
+
+      .camera =
+          {
+              .stochastic_sampling = true,
+              .depth_of_field = false,
+              .lens_radius = 0.f,
+              .focal_distance = 0.f,
+          },
   });
 
   return true;

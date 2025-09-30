@@ -12,6 +12,14 @@
 __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3 normal,
                                                               thrust::default_random_engine& rng);
 
+/// Given a pair of values between [0, 1), maps them to a 2D unit disk
+/// centered at the origin i.e. (0, 0).
+__device__ glm::vec2 sample_uniform_disk_concentric(glm::vec2 u);
+
+/// Given a pair of values between [0, 1), maps them to a 2D unit disk
+/// centered at the origin i.e. (0, 0).
+__device__ glm::vec2 sample_uniform_disk_concentric(float u0, float u1);
+
 namespace kernel {
 
 /// Given a list of intersections, samples the material at the point and adds its contribution

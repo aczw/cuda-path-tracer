@@ -34,6 +34,31 @@ __device__ glm::vec3 calculate_random_direction_in_hemisphere(glm::vec3 normal,
   return up * normal + std::cos(around) * over * perp_dir_1 + std::sin(around) * over * perp_dir_2;
 }
 
+__device__ glm::vec2 sample_uniform_disk_concentric(glm::vec2 u) {
+  // Map to [-1, 1]
+  glm::vec2 u_offset = 2.f * u - glm::vec2(1.f);
+
+  // Return early to avoid dividing by zero later
+  if (u_offset.x == 0.f && u_offset.y == 0.f) {
+    return glm::vec2();
+  }
+
+  float theta, r;
+  if (glm::abs(u_offset.x) > glm::abs(u_offset.y)) {
+    r = u_offset.x;
+    theta = std::numbers::pi / 4.f * (u_offset.y / u_offset.x);
+  } else {
+    r = u_offset.y;
+    theta = (std::numbers::pi / 2.f) - (std::numbers::pi / 4.f) * (u_offset.x / u_offset.y);
+  }
+
+  return r * glm::vec2(glm::cos(theta), glm::sin(theta));
+}
+
+__device__ glm::vec2 sample_uniform_disk_concentric(float u0, float u1) {
+  return sample_uniform_disk_concentric(glm::vec2(u0, u1));
+}
+
 __device__ Ray find_pure_reflection(Ray og_ray, Intersection isect) {
   return {
       .origin = og_ray.at(isect.t),

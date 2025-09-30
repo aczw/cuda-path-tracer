@@ -82,27 +82,9 @@ Schlick's approximation:
 
 TODO(aczw): use difference as metric to measure how effective sampling methods are?
 
-#### Modeling intersections
-
-We should not perform work on paths that may have already completed. This can occur in two ways: the path has intersected with a light, and the path has traveled out of bounds. The third possibility, of course, is that the path has not finished traveling. It can be considered an "intermediate." 
-
-These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[^2] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
-
-```cpp
-struct OutOfBounds {};
-struct HitLight { /* Data members here */ };
-struct Intermediate { /* Data members here */ };
-
-using Intersection = cuda::std::variant<Intermediate, HitLight, OutOfBounds>;
-```
-
-See [`src/intersection.cuh`](src/intersection.cuh).
-
-If the ray went out of bounds, we don't need to store any information. However, the data we need when we've intersected with a light is different from when we're still traveling through the scene. This structure allows me to expose different data depending on what *type* the intersection is.
-
 #### Partitioning the paths
 
-I use this to essentially *discard* paths we don't need to perform additional computations on by partitioning the buffer, separating paths that are still "active" and those that aren't. I currently do this in two phases:
+I essentially discard paths we don't need to perform additional computations on by partitioning the buffer, separating paths that are still "active" and those that aren't. I currently do this in two phases:
 
 - Discarding paths that went out of bounds (OOB)
 - Discarding paths that have intersected with a light
@@ -124,13 +106,94 @@ TODO(aczw): prove this
 
 ### Stochastic sampling (anti-aliasing)
 
+### Thin lens camera model and depth of field
+
 ### Tone mapping
+
+### Codebase rewrite
+
+I spent a significant, non-trivial amount of time rewriting the base code of this assignment. I don't often get as much free rein over a homework as I did this time, and therefore wanted to take the opportunity to explore additional C++ features in the hopes of "modernizing" the code. By this I mean reducing the following:
+
+- Runtime global variables
+- Entirely removing `new` and `delete` memory management
+
+Now my code tries to use:
+
+- C++ `std` libraries and their equivalent on CUDA, `libcu++`
+- `<numbers>`
+- `<limits>`
+- `<format>`
+- Smart pointers such as `std::unique_ptr`
+- Namespaces to organize kernels and other related functions
+- `constexpr` for compile-time calculations, although it seems CUDA doesn't have the best support for it
+
+#### Designated initializers
+
+I wanted to take some time to highlight C++20 _designated initializers_. Most of the data structures we're dealing with this homework are extremely simple in nature, just a `struct` with some members. With this feature I can initialize a variable as follows:
+
+```cpp
+// Here's my PathSegment struct.
+struct PathSegment {
+  Ray ray;
+  glm::vec3 throughput;
+  float radiance;
+  int pixel_index;
+  int remaining_bounces;
+};
+
+int main() {
+  Ray ray = calculate_ray();
+  int index = calculate_index();
+  int max_depth = settings.get_max_depth();
+
+  // I can now initialize it like this:
+  PathSegment segment = {
+      .ray = ray,
+      .throughput = glm::vec3(1.f),
+      .radiance = 0.f,
+      .pixel_index = index,
+      .remaining_bounces = max_depth,
+  };
+
+  return 0;
+}
+```
+
+This allows me to still be explicit in assignments, but now I can group the initialization of all the members together, and in general I think it simply looks better.
+
+#### Failed attempt: modeling intersections and materials
+
+What follows was an attempt to use C++'s functional programming features. I'll explain the motives behind it, my experiencing using it, and why it eventually failed.
+
+We should not perform work on paths that may have already completed. This can occur in two ways: the path has intersected with a light, and the path has traveled out of bounds. The third possibility, of course, is that the path has not finished traveling. It can be considered an "intermediate." 
+
+These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[^2] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
+
+```cpp
+struct OutOfBounds {};
+struct HitLight { /* Data members here */ };
+struct Intermediate { /* Data members here */ };
+
+using Intersection = cuda::std::variant<Intermediate, HitLight, OutOfBounds>;
+```
+
+See [`src/intersection.cuh`](src/intersection.cuh).
+
+If the ray went out of bounds, we don't need to store any information. However, the data we need when we've intersected with a light is different from when we're still traveling through the scene. This structure allows me to expose different data depending on what *type* the intersection is.
+
+##### Materials
+
+Materials followed a similar pattern.
+
+##### Why it failed
+
+At first everything was gravy. But then I ran into other bugs. And, when the two most important kernel invocations in your program are wrapped in confusing C++ function calls, it makes it a little difficult to debug errors.
 
 ## Credits
 
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
 
-## Building
+## For grading considerations
 
 I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the changes that I've made:
 
@@ -145,6 +208,8 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 - `PureReflection`
 - `PureTransmission`
 - `PerfectSpecular`
+
+I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
 ### Testing
 

@@ -102,7 +102,7 @@ bool initialize_components(RenderContext* ctx, GLFWwindow* window) {
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGui::StyleColorsLight();
+  ImGui::StyleColorsDark();
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init("#version 120");
 
@@ -155,6 +155,10 @@ void render_gui(GuiData* gui_data) {
     float fps = ImGui::GetIO().Framerate;
     ImGui::Text("FPS: %.2f (%.2f ms)", fps, 1000.0f / fps);
 
+    ImGui::Spacing();
+    ImGui::Spacing();
+    ImGui::Spacing();
+
     if (ImGui::BeginTabBar("Configuration")) {
       if (ImGui::BeginTabItem("Performance")) {
         ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
@@ -169,8 +173,24 @@ void render_gui(GuiData* gui_data) {
       }
 
       if (ImGui::BeginTabItem("Visual")) {
-        ImGui::Checkbox("Stochastic sampling", &gui_data->stochastic_sampling);
         ImGui::Checkbox("Apply tone mapping", &gui_data->apply_tone_mapping);
+        ImGui::EndTabItem();
+      }
+
+      if (ImGui::BeginTabItem("Camera")) {
+        ImGui::Checkbox("Perform stochastic sampling", &gui_data->camera.stochastic_sampling);
+
+        ImGui::Checkbox("Enable depth of field", &gui_data->camera.depth_of_field);
+        {
+          const bool enabled = gui_data->camera.depth_of_field;
+          if (!enabled) ImGui::BeginDisabled();
+          ImGui::PushItemWidth(150.f);
+          ImGui::SliderFloat("Lens radius", &gui_data->camera.lens_radius, 0.f, 10.f);
+          ImGui::SliderFloat("Focal distance", &gui_data->camera.focal_distance, 0.f, 50.f);
+          ImGui::PopItemWidth();
+          if (!enabled) ImGui::EndDisabled();
+        }
+
         ImGui::EndTabItem();
       }
     }
@@ -209,7 +229,7 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
       prev_camera = ctx->scene.camera;
     }
 
-    if (prev_gui_data.stochastic_sampling != gui_data->stochastic_sampling ||
+    if (prev_gui_data.camera != gui_data->camera ||
         prev_gui_data.apply_tone_mapping != gui_data->apply_tone_mapping) {
       ctx->curr_iteration = 0;
     }
