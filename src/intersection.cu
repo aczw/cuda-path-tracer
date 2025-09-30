@@ -125,7 +125,13 @@ __global__ void find_intersections(int num_paths,
     return;
   }
 
-  Ray prev_ray = segments[segment_index].ray;
+  PathSegment segment = segments[segment_index];
+
+  if (segment.remaining_bounces == 0) {
+    return;
+  }
+
+  Ray segment_ray = segment.ray;
   float t_min = cuda::std::numeric_limits<float>::max();
 
   Intersection isect;
@@ -139,11 +145,11 @@ __global__ void find_intersections(int num_paths,
 
     switch (geometry.type) {
       case Geometry::Type::Cube:
-        curr_isect = test_cube_isect(geometry, prev_ray);
+        curr_isect = test_cube_isect(geometry, segment_ray);
         break;
 
       case Geometry::Type::Sphere:
-        curr_isect = test_sphere_isect(geometry, prev_ray);
+        curr_isect = test_sphere_isect(geometry, segment_ray);
         break;
 
       default:

@@ -113,14 +113,14 @@ __global__ void sample(int num_paths,
     return;
   }
 
+  PathSegment segment = segments[index];
   Intersection isect = intersections[index];
 
-  if (isect.t < 0.f) {
+  if (segment.remaining_bounces == 0 || isect.t < 0.f) {
     return;
   }
 
   Material material = material_list[isect.material_id];
-  PathSegment segment = segments[index];
   Ray og_ray = segment.ray;
 
   using enum Material::Type;
@@ -129,12 +129,14 @@ __global__ void sample(int num_paths,
     case Unknown: {
       segment.radiance = 1.f;
       segment.throughput = glm::vec3(1.f, 0.f, 1.f);
+      segment.remaining_bounces = 0;
       break;
     }
 
     case Light: {
       segment.radiance = material.emission;
       segment.throughput *= material.color;
+      segment.remaining_bounces = 0;
       break;
     }
 

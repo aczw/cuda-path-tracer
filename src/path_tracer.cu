@@ -99,26 +99,39 @@ __global__ void final_gather(int num_pixels, glm::vec3* image, PathSegment* segm
   }
 
   PathSegment segment = segments[index];
+
+  if (segment.radiance <= 0.f) {
+    return;
+  }
+
   image[segment.pixel_index] += segment.radiance * segment.throughput;
 }
 
 }  // namespace kernel
 
-struct IsNotOutOfBounds {
-  __host__ __device__ bool operator()(Intersection isect, PathSegment) { return isect.t > 0.f; }
-};
+/// Operations.
+namespace op {
 
-struct IsNotLightIsect {
-  __host__ __device__ bool operator()(Intersection, PathSegment segment) {
-    return segment.radiance == 0.f;
+struct is_not_oob {
+  __host__ __device__ bool operator()(const PathTracer::ZipTuple& tuple) const {
+    return thrust::get<0>(tuple).t > 0.f;
   }
 };
 
-struct SortByMaterialId {
-  __host__ __device__ bool operator()(PathTracer::ZipTuple zip_1, PathTracer::ZipTuple zip_2) {
+struct is_not_light_isect {
+  __host__ __device__ bool operator()(const PathTracer::ZipTuple& tuple) const {
+    return thrust::get<1>(tuple).radiance == 0.f;
+  }
+};
+
+struct sort_by_material_id {
+  __host__ __device__ bool operator()(const PathTracer::ZipTuple& zip_1,
+                                      const PathTracer::ZipTuple& zip_2) const {
     return thrust::get<0>(zip_1).material_id < thrust::get<0>(zip_2).material_id;
   }
 };
+
+}  // namespace op
 
 PathTracer::PathTracer(RenderContext* ctx)
     : ctx(ctx),
@@ -173,9 +186,6 @@ void PathTracer::free() {
 }
 
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
-  static const thrust::zip_function not_oob = thrust::make_zip_function(IsNotOutOfBounds{});
-  static const thrust::zip_function not_light_isect = thrust::make_zip_function(IsNotLightIsect{});
-
   const Camera& camera = ctx->scene.camera;
   GuiData* gui_data = ctx->get_gui_data();
   int geometry_list_size = ctx->scene.geometry_list.size();
@@ -197,12 +207,15 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     // Discard out of bounds intersections. While the goal is to remove "complete" paths,
     // we don't discard intersections with lights yet because it's required below
     if (gui_data->discard_oob_paths) {
-      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, not_oob);
+      // int old = num_paths;
+      // std::cout << std::format("[not_oob] before: {}", num_paths);
+      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, op::is_not_oob{});
       num_paths = thrust::distance(zip_begin, zip_end);
+      // std::cout << std::format(", after: {}, diff: {}\n", num_paths, old - num_paths);
     }
 
     if (gui_data->sort_paths_by_material) {
-      thrust::sort(zip_begin, zip_end, SortByMaterialId{});
+      thrust::sort(zip_begin, zip_end, op::sort_by_material_id{});
     }
 
     kernel::sample<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
@@ -215,7 +228,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     if (gui_data->discard_light_isect_paths) {
       // TODO(aczw): overhead of partitioning zip iterator vs. just path segments? Intersections
       // get reset at the end of this while loop anyway.
-      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, not_light_isect);
+      zip_end = thrust::partition(zip_begin, zip_begin + num_paths, op::is_not_light_isect{});
       num_paths = thrust::distance(zip_begin, zip_end);
     }
 
