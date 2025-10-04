@@ -120,6 +120,7 @@ __device__ Intersection test_gltf_isect(Geometry gltf,
                                         glm::vec3* normal_list) {
   Intersection isect;
   isect.t = -1.f;
+  float t_min = cuda::std::numeric_limits<float>::max();
 
   Ray obj_ray = {
       .origin = glm::vec3(gltf.inv_transform * glm::vec4(ray.origin, 1.f)),
@@ -137,25 +138,27 @@ __device__ Intersection test_gltf_isect(Geometry gltf,
       continue;
     }
 
-    float u = bary.x;
-    float v = bary.y;
-    float w = 1.f - u - v;
+    if (t_min > bary.z) {
+      float u = bary.x;
+      float v = bary.y;
+      float w = 1.f - u - v;
 
-    const glm::vec3 normal = normal_list[triangle[1].nor_idx];
-    const glm::vec3 point = w * v0 + u * v1 + v * v2;
+      const glm::vec3 normal = normal_list[triangle[1].nor_idx];
+      const glm::vec3 point = w * v0 + u * v1 + v * v2;
 
-    if (glm::dot(normal, obj_ray.direction) < 0.f) {
-      isect.surface = Surface::Outside;
-    } else {
-      isect.surface = Surface::Inside;
+      if (glm::dot(normal, obj_ray.direction) < 0.f) {
+        isect.surface = Surface::Outside;
+      } else {
+        isect.surface = Surface::Inside;
+      }
+
+      isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(normal, 0.f)));
+      isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
+      isect.t = bary.z;
+      isect.material_id = gltf.material_id;
+
+      t_min = isect.t;
     }
-
-    isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(normal, 0.f)));
-    isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
-    isect.t = bary.z;
-    isect.material_id = gltf.material_id;
-
-    return isect;
   }
 
   return isect;
