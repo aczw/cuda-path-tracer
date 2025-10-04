@@ -157,6 +157,8 @@ PathTracer::PathTracer(RenderContext* ctx)
       dev_image(nullptr),
       dev_geometry_list(nullptr),
       dev_material_list(nullptr),
+      dev_triangle_list(nullptr),
+      dev_position_list(nullptr),
       dev_segments(nullptr),
       dev_intersections(nullptr),
       max_depth(ctx->settings.max_depth),
@@ -180,6 +182,18 @@ void PathTracer::initialize() {
   cudaMemcpy(dev_material_list, materials.data(), materials.size() * sizeof(Material),
              cudaMemcpyHostToDevice);
 
+  const std::vector<Triangle>& triangles = ctx->scene.triangle_list;
+  cudaMalloc(&dev_triangle_list, triangles.size() * sizeof(Triangle));
+  cudaMemcpy(dev_triangle_list, triangles.data(), triangles.size() * sizeof(Triangle),
+             cudaMemcpyHostToDevice);
+  check_cuda_error("PathTracer::initialize: cudaMalloc(dev_triangle_list)");
+
+  const std::vector<glm::vec3>& positions = ctx->scene.position_list;
+  cudaMalloc(&dev_position_list, positions.size() * sizeof(glm::vec3));
+  cudaMemcpy(dev_position_list, positions.data(), positions.size() * sizeof(glm::vec3),
+             cudaMemcpyHostToDevice);
+  check_cuda_error("PathTracer::initialize: cudaMalloc(dev_position_list)");
+
   cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
   cudaMalloc(&dev_intersections, num_pixels * sizeof(Intersection));
 
@@ -194,6 +208,8 @@ void PathTracer::free() {
   cudaFree(dev_image);
   cudaFree(dev_geometry_list);
   cudaFree(dev_material_list);
+  cudaFree(dev_triangle_list);
+  cudaFree(dev_position_list);
   cudaFree(dev_segments);
   cudaFree(dev_intersections);
 
@@ -203,7 +219,7 @@ void PathTracer::free() {
 void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   const Camera& camera = ctx->scene.camera;
   GuiData* gui_data = ctx->get_gui_data();
-  int geometry_list_size = ctx->scene.geometry_list.size();
+  const int geometry_list_size = ctx->scene.geometry_list.size();
 
   kernel::initialize_segments<<<num_blocks_64, BLOCK_SIZE_64>>>(
       num_pixels, curr_iter, max_depth, camera, gui_data->camera, dev_segments);
@@ -215,8 +231,8 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
 
   while (true) {
     kernel::find_intersections<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
-        num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_segments,
-        dev_intersections);
+        num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_triangle_list,
+        dev_position_list, dev_segments, dev_intersections);
     check_cuda_error("kernel::find_intersections");
     curr_depth++;
 

@@ -37,6 +37,8 @@ __global__ void find_intersections(int num_paths,
                                    Geometry* geometry_list,
                                    int geometry_list_size,
                                    Material* material_list,
+                                   Triangle* triangle_list,
+                                   glm::vec3* position_list,
                                    PathSegment* segments,
                                    Intersection* intersections);
 

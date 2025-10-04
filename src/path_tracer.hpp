@@ -32,8 +32,12 @@ class PathTracer {
   RenderContext* ctx;
 
   glm::vec3* dev_image;
+
   Geometry* dev_geometry_list;
   Material* dev_material_list;
+  Triangle* dev_triangle_list;
+  glm::vec3* dev_position_list;
+
   PathSegment* dev_segments;
   Intersection* dev_intersections;
 
