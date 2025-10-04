@@ -12,9 +12,15 @@
 #include <string_view>
 #include <vector>
 
+/// A triangle is simply a trio of indices pointing at vertex attributes.
+using Triangle = glm::ivec3;
+
 struct Geometry {
   enum class Type { Sphere, Cube, Gltf } type;
   char material_id;
+
+  std::vector<Triangle> triangles;
+  std::vector<glm::vec3> positions;
 
   glm::vec3 translation;
   glm::vec3 rotation;

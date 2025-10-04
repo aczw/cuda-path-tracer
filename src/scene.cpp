@@ -7,11 +7,121 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <tiny_gltf.h>
 
+#include <cstdint>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <numbers>
 #include <string>
 #include <unordered_map>
+
+namespace {
+
+bool try_load_gltf_into_geometry(Geometry& geometry,
+                                 const tinygltf::Model& model,
+                                 std::function<void(std::string_view)> print_error) {
+  using namespace tinygltf;
+
+  const std::vector<Mesh>& meshes = model.meshes;
+
+  if (meshes.empty()) {
+    print_error("no meshes to render");
+    return false;
+  }
+
+  std::vector<glm::vec3>& geom_pos = geometry.positions;
+
+  for (const Primitive& primitive : meshes[0].primitives) {
+    if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
+      print_error("mesh primitive is not a triangle");
+      return false;
+    }
+
+    if (primitive.indices == -1) {
+      print_error("mesh primitive does not specify vertex indices");
+      return false;
+    }
+
+    const Accessor& idx_accessor = model.accessors[primitive.indices];
+    const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
+
+    if (idx_accessor.type != TINYGLTF_TYPE_SCALAR ||
+        idx_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+      print_error("vertex indices are not scalars (uint16_t)");
+      return false;
+    }
+
+    if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+      print_error("position component type is not a float");
+      return false;
+    }
+
+    const BufferView& pos_bv = model.bufferViews[pos_accessor.bufferView];
+    const Buffer& pos_buffer = model.buffers[pos_bv.buffer];
+    const float* positions = reinterpret_cast<const float*>(
+        &pos_buffer.data[pos_bv.byteOffset + pos_accessor.byteOffset]);
+
+    const BufferView& idx_bv = model.bufferViews[idx_accessor.bufferView];
+    const Buffer& idx_buffer = model.buffers[idx_bv.buffer];
+    const uint16_t* indices = reinterpret_cast<const uint16_t*>(
+        &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset]);
+
+    // Collect unique positions into geometry. We will reference their indices later
+    for (int offset = 0; offset < pos_accessor.count; ++offset) {
+      glm::vec3 pos(positions[offset * 3], positions[offset * 3 + 1], positions[offset * 3 + 2]);
+
+      if (auto it = std::ranges::find(geom_pos, pos); it == geom_pos.end()) {
+        geom_pos.push_back(std::move(pos));
+      }
+
+      // std::cout << std::format("{}: [{}, {}, {}]\n", offset, positions[offset * 3],
+      //                          positions[offset * 3 + 1], positions[offset * 3 + 2]);
+    }
+
+    // for (int i = 0; i < idx_accessor.count; ++i) {
+    //   int old_idx = indices[i];
+
+    //   std::cout << std::format("idx: {} - ", old_idx);
+    //   std::cout << std::format("[{}, {}, {}]\n", positions[old_idx * 3], positions[old_idx * 3 +
+    //   1],
+    //                            positions[old_idx * 3 + 2]);
+    // }
+
+    // Iterate over each triangle
+    for (int i = 0; i < idx_accessor.count; i += 3) {
+      Triangle triangle;
+
+      // Iterate over each vertex in the triangle, and map to new index
+      for (int j = i; j < i + 3; ++j) {
+        int old_idx = indices[j];
+        glm::vec3 curr_pos(positions[old_idx * 3], positions[old_idx * 3 + 1],
+                           positions[old_idx * 3 + 2]);
+
+        if (auto it = std::ranges::find(geom_pos, curr_pos); it != geom_pos.end()) {
+          auto new_idx = std::ranges::distance(geom_pos.begin(), it);
+          triangle[j - i] = new_idx;
+        } else {
+          print_error("index referencing previously undiscovered vertex position");
+          return false;
+        }
+      }
+
+      geometry.triangles.push_back(std::move(triangle));
+    }
+
+    // for (const Triangle& tri : geometry.triangles) {
+    //   for (int idx : tri) {
+    //     std::cout << std::format("idx: {} - [{}, {}, {}]\n", idx, geom_pos[idx].x,
+    //     geom_pos[idx].y,
+    //                              geom_pos[idx].z);
+    //   }
+    // }
+  }
+
+  return true;
+}
+
+}  // namespace
 
 Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
@@ -79,26 +189,27 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
       fs::path gltf_path = object["PATH"];
       std::string file_name = gltf_path.filename().string();
 
+      auto print_error = [&](std::string_view message) {
+        std::cerr << std::format("[GLTF] Error: {}: {}\n", file_name, message.data());
+      };
+
       if (!fs::exists(gltf_path)) {
-        std::cerr << std::format("[GLTF] Error: \"{}\" does not exist\n", file_name);
+        print_error("file does not exist");
         return {};
       }
 
       fs::path extension = gltf_path.extension();
       if (extension != ".gltf" && extension != ".glb") {
-        std::cerr << std::format("[GLTF] Error: \"{}\" is not a .gltf/.glb file\n", file_name);
+        print_error("not a .gltf/.glb file");
         return {};
       }
 
-      using namespace tinygltf;
-
-      Model model;
-
+      tinygltf::Model model;
       std::string error;
       std::string warning;
 
       bool result = [&]() -> bool {
-        TinyGLTF loader;
+        tinygltf::TinyGLTF loader;
         std::string canonical = fs::canonical(gltf_path).string();
 
         std::cout << std::format("[GTLF] Loading \"{}\"\n", canonical);
@@ -115,15 +226,16 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
       }
 
       if (!error.empty()) {
-        std::cout << std::format("[GLSL] Error: {}\n", error);
+        std::cout << std::format("[GLTF] Error: {}\n", error);
       }
 
       if (!result) {
         return {};
       }
 
-      // Prevents crash from happening for now
-      new_geometry.type = Geometry::Type::Sphere;
+      if (!try_load_gltf_into_geometry(new_geometry, model, print_error)) {
+        return {};
+      }
     }
 
     const auto& trans = object["TRANS"];
