@@ -116,7 +116,8 @@ __device__ Intersection test_sphere_isect(Geometry sphere, Ray ray) {
 __device__ Intersection test_gltf_isect(Geometry gltf,
                                         Ray ray,
                                         Triangle* triangle_list,
-                                        glm::vec3* position_list) {
+                                        glm::vec3* position_list,
+                                        glm::vec3* normal_list) {
   Intersection isect;
   isect.t = -1.f;
 
@@ -127,32 +128,31 @@ __device__ Intersection test_gltf_isect(Geometry gltf,
 
   for (int tri_idx = gltf.tri_begin; tri_idx < gltf.tri_end; ++tri_idx) {
     const Triangle& triangle = triangle_list[tri_idx];
-    const glm::vec3 v0 = position_list[triangle.x];
-    const glm::vec3 v1 = position_list[triangle.y];
-    const glm::vec3 v2 = position_list[triangle.z];
+    const glm::vec3 v0 = position_list[triangle[0].pos_idx];
+    const glm::vec3 v1 = position_list[triangle[1].pos_idx];
+    const glm::vec3 v2 = position_list[triangle[2].pos_idx];
 
-    glm::vec3 bary_pos;
-    if (!glm::intersectRayTriangle(obj_ray.origin, obj_ray.direction, v0, v1, v2, bary_pos)) {
+    glm::vec3 bary;
+    if (!glm::intersectRayTriangle(obj_ray.origin, obj_ray.direction, v0, v1, v2, bary)) {
       continue;
     }
 
-    glm::vec3 point = bary_pos.x * v0 + bary_pos.y * v1 + bary_pos.z * v2;
-    glm::vec3 v0_to_v1 = v1 - v0;
-    glm::vec3 v0_to_v2 = v2 - v0;
-    glm::vec3 normal = glm::normalize(glm::cross(v0_to_v1, v0_to_v2));
+    float u = bary.x;
+    float v = bary.y;
+    float w = 1.f - u - v;
 
-    float dir = glm::dot(normal, obj_ray.direction);
-    if (dir < 0.f) {
+    const glm::vec3 normal = glm::normalize(normal_list[triangle[1].nor_idx]);
+    const glm::vec3 point = w * v0 + u * v1 + v * v2 + (0.01f * normal);
+
+    if (glm::dot(normal, obj_ray.direction) < 0.f) {
       isect.surface = Surface::Outside;
-    } else if (dir > 0.f) {
-      isect.surface = Surface::Inside;
     } else {
-      continue;
+      isect.surface = Surface::Inside;
     }
 
-    isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
-    isect.t = glm::distance(point, obj_ray.origin);
     isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(normal, 0.f)));
+    isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
+    isect.t = bary.z;
     isect.material_id = gltf.material_id;
 
     return isect;
@@ -169,6 +169,7 @@ __global__ void find_intersections(int num_paths,
                                    Material* material_list,
                                    Triangle* triangle_list,
                                    glm::vec3* position_list,
+                                   glm::vec3* normal_list,
                                    PathSegment* segments,
                                    Intersection* intersections) {
   int segment_index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -205,7 +206,8 @@ __global__ void find_intersections(int num_paths,
         break;
 
       case Geometry::Type::Gltf:
-        curr_isect = test_gltf_isect(geometry, segment_ray, triangle_list, position_list);
+        curr_isect =
+            test_gltf_isect(geometry, segment_ray, triangle_list, position_list, normal_list);
         break;
 
       default:

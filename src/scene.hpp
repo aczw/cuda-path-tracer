@@ -4,6 +4,8 @@
 #include "material.hpp"
 #include "utilities.cuh"
 
+#include <cuda/std/array>
+
 #include <glm/glm.hpp>
 #include <tiny_gltf.h>
 
@@ -13,8 +15,14 @@
 #include <string_view>
 #include <vector>
 
-/// A triangle is simply a trio of indices pointing at vertex attributes.
-using Triangle = glm::ivec3;
+struct Vertex {
+  int pos_idx;
+  int nor_idx;
+};
+
+/// A triangle is simply a trio of vertices containing the indices
+/// pointing at various vertex attributes.
+using Triangle = cuda::std::array<Vertex, 3>;
 
 struct Geometry {
   enum class Type { Sphere, Cube, Gltf } type;
@@ -52,6 +60,7 @@ class Scene {
 
   /// Global list of position data. Accessed via indices contained in triangles.
   std::vector<glm::vec3> position_list;
+  std::vector<glm::vec3> normal_list;
 
  private:
   bool try_load_gltf_into_geometry(Geometry& geometry,

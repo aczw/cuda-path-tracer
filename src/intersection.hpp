@@ -33,7 +33,8 @@ __device__ Intersection test_sphere_isect(Geometry sphere, Ray ray);
 __device__ Intersection test_gltf_isect(Geometry gltf,
                                         Ray ray,
                                         Triangle* triangle_list,
-                                        glm::vec3* position_list);
+                                        glm::vec3* position_list,
+                                        glm::vec3* normal_list);
 
 namespace kernel {
 
@@ -44,6 +45,7 @@ __global__ void find_intersections(int num_paths,
                                    Material* material_list,
                                    Triangle* triangle_list,
                                    glm::vec3* position_list,
+                                   glm::vec3* normal_list,
                                    PathSegment* segments,
                                    Intersection* intersections);
 

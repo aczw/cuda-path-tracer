@@ -220,28 +220,25 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
     }
 
     const Accessor& idx_accessor = model.accessors[primitive.indices];
-    const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
-
     if (idx_accessor.type != TINYGLTF_TYPE_SCALAR ||
         idx_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
       print_error("vertex indices are not scalars (uint16_t)");
       return false;
     }
-
-    if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
-      print_error("position component type is not a float");
-      return false;
-    }
-
-    const BufferView& pos_bv = model.bufferViews[pos_accessor.bufferView];
-    const Buffer& pos_buffer = model.buffers[pos_bv.buffer];
-    const float* positions = reinterpret_cast<const float*>(
-        &pos_buffer.data[pos_bv.byteOffset + pos_accessor.byteOffset]);
-
     const BufferView& idx_bv = model.bufferViews[idx_accessor.bufferView];
     const Buffer& idx_buffer = model.buffers[idx_bv.buffer];
     const uint16_t* indices = reinterpret_cast<const uint16_t*>(
         &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset]);
+
+    const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
+    if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+      print_error("position component type is not a float");
+      return false;
+    }
+    const BufferView& pos_bv = model.bufferViews[pos_accessor.bufferView];
+    const Buffer& pos_buffer = model.buffers[pos_bv.buffer];
+    const float* positions = reinterpret_cast<const float*>(
+        &pos_buffer.data[pos_bv.byteOffset + pos_accessor.byteOffset]);
 
     // Collect unique positions into global geometry list. We will reference their indices later
     for (int offset = 0; offset < pos_accessor.count; ++offset) {
@@ -252,22 +249,53 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
       }
     }
 
+    const Accessor& nor_accessor = model.accessors[primitive.attributes.at("NORMAL")];
+    if (nor_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+      print_error("normal component type is not a float");
+      return false;
+    }
+    const BufferView& nor_bv = model.bufferViews[nor_accessor.bufferView];
+    const Buffer& nor_buffer = model.buffers[nor_bv.buffer];
+    const float* normals = reinterpret_cast<const float*>(
+        &nor_buffer.data[nor_bv.byteOffset + nor_accessor.byteOffset]);
+
+    // Collect unique normals into global geometry list. We will reference their indices later
+    for (int offset = 0; offset < nor_accessor.count; ++offset) {
+      glm::vec3 nor(normals[offset * 3], normals[offset * 3 + 1], normals[offset * 3 + 2]);
+
+      if (auto it = std::ranges::find(normal_list, nor); it == normal_list.end()) {
+        normal_list.push_back(std::move(nor));
+      }
+    }
+
     // Iterate over each triangle
     for (int i = 0; i < idx_accessor.count; i += 3) {
       Triangle triangle;
 
       // Iterate over each vertex in the triangle, and map to new index
       for (int j = i; j < i + 3; ++j) {
-        int old = indices[j];
-        glm::vec3 pos(positions[old * 3], positions[old * 3 + 1], positions[old * 3 + 2]);
+        int old_idx = indices[j];
+        int offset = old_idx * 3;
 
         // Find the position data (which we added in the previous step) in the list
         // and use its index for this vertex
+        glm::vec3 pos(positions[offset], positions[offset + 1], positions[offset + 2]);
         if (auto it = std::ranges::find(position_list, pos); it != position_list.end()) {
           auto new_idx = std::ranges::distance(position_list.begin(), it);
-          triangle[j - i] = new_idx;
+          triangle[j - i].pos_idx = new_idx;
         } else {
           print_error("index referencing previously undiscovered vertex position");
+          return false;
+        }
+
+        // Find the normal data (which we added in the previous step) in the list
+        // and use its index for this vertex
+        glm::vec3 nor(normals[offset], normals[offset + 1], normals[offset + 2]);
+        if (auto it = std::ranges::find(normal_list, nor); it != normal_list.end()) {
+          auto new_idx = std::ranges::distance(normal_list.begin(), it);
+          triangle[j - i].nor_idx = new_idx;
+        } else {
+          print_error("index referencing previously undiscovered vertex normal");
           return false;
         }
       }

@@ -37,6 +37,7 @@ class PathTracer {
   Material* dev_material_list;
   Triangle* dev_triangle_list;
   glm::vec3* dev_position_list;
+  glm::vec3* dev_normal_list;
 
   PathSegment* dev_segments;
   Intersection* dev_intersections;

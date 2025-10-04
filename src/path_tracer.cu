@@ -158,6 +158,7 @@ PathTracer::PathTracer(RenderContext* ctx)
       dev_geometry_list(nullptr),
       dev_material_list(nullptr),
       dev_triangle_list(nullptr),
+      dev_normal_list(nullptr),
       dev_position_list(nullptr),
       dev_segments(nullptr),
       dev_intersections(nullptr),
@@ -194,6 +195,12 @@ void PathTracer::initialize() {
              cudaMemcpyHostToDevice);
   check_cuda_error("PathTracer::initialize: cudaMalloc(dev_position_list)");
 
+  const std::vector<glm::vec3>& normals = ctx->scene.normal_list;
+  cudaMalloc(&dev_normal_list, normals.size() * sizeof(glm::vec3));
+  cudaMemcpy(dev_normal_list, normals.data(), normals.size() * sizeof(glm::vec3),
+             cudaMemcpyHostToDevice);
+  check_cuda_error("PathTracer::initialize: cudaMalloc(dev_position_list)");
+
   cudaMalloc(&dev_segments, num_pixels * sizeof(PathSegment));
   cudaMalloc(&dev_intersections, num_pixels * sizeof(Intersection));
 
@@ -210,6 +217,7 @@ void PathTracer::free() {
   cudaFree(dev_material_list);
   cudaFree(dev_triangle_list);
   cudaFree(dev_position_list);
+  cudaFree(dev_normal_list);
   cudaFree(dev_segments);
   cudaFree(dev_intersections);
 
@@ -232,7 +240,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
   while (true) {
     kernel::find_intersections<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
         num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_triangle_list,
-        dev_position_list, dev_segments, dev_intersections);
+        dev_position_list, dev_normal_list, dev_segments, dev_intersections);
     check_cuda_error("kernel::find_intersections");
     curr_depth++;
 
