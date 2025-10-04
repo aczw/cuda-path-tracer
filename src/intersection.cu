@@ -12,7 +12,7 @@ __device__ Intersection test_cube_isect(Geometry cube, Ray ray) {
 
   Ray obj_ray = {
       .origin = glm::vec3(cube.inv_transform * glm::vec4(ray.origin, 1.f)),
-      .direction = glm::normalize(glm::vec3(cube.inv_transform * glm::vec4(ray.direction, 0.f))),
+      .direction = glm::vec3(cube.inv_transform * glm::vec4(ray.direction, 0.f)),
   };
 
   for (int xyz = 0; xyz < 3; ++xyz) {
@@ -123,7 +123,7 @@ __device__ Intersection test_gltf_isect(Geometry gltf,
 
   Ray obj_ray = {
       .origin = glm::vec3(gltf.inv_transform * glm::vec4(ray.origin, 1.f)),
-      .direction = glm::normalize(glm::vec3(gltf.inv_transform * glm::vec4(ray.direction, 0.f))),
+      .direction = glm::vec3(gltf.inv_transform * glm::vec4(ray.direction, 0.f)),
   };
 
   for (int tri_idx = gltf.tri_begin; tri_idx < gltf.tri_end; ++tri_idx) {
@@ -141,8 +141,8 @@ __device__ Intersection test_gltf_isect(Geometry gltf,
     float v = bary.y;
     float w = 1.f - u - v;
 
-    const glm::vec3 normal = glm::normalize(normal_list[triangle[1].nor_idx]);
-    const glm::vec3 point = w * v0 + u * v1 + v * v2 + (0.01f * normal);
+    const glm::vec3 normal = normal_list[triangle[1].nor_idx];
+    const glm::vec3 point = w * v0 + u * v1 + v * v2;
 
     if (glm::dot(normal, obj_ray.direction) < 0.f) {
       isect.surface = Surface::Outside;
