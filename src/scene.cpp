@@ -5,6 +5,7 @@
 
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <tiny_gltf.h>
 
 #include <fstream>
 #include <iostream>
@@ -12,7 +13,7 @@
 #include <string>
 #include <unordered_map>
 
-Settings Scene::load_from_json(std::filesystem::path scene_file) {
+Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
   nlohmann::json root = nlohmann::json::parse(stream);
 
@@ -72,6 +73,57 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
       new_geometry.type = Geometry::Type::Sphere;
     } else {
       new_geometry.type = Geometry::Type::Gltf;
+
+      namespace fs = std::filesystem;
+
+      fs::path gltf_path = object["PATH"];
+      std::string file_name = gltf_path.filename().string();
+
+      if (!fs::exists(gltf_path)) {
+        std::cerr << std::format("[GLTF] Error: \"{}\" does not exist\n", file_name);
+        return {};
+      }
+
+      fs::path extension = gltf_path.extension();
+      if (extension != ".gltf" && extension != ".glb") {
+        std::cerr << std::format("[GLTF] Error: \"{}\" is not a .gltf/.glb file\n", file_name);
+        return {};
+      }
+
+      using namespace tinygltf;
+
+      Model model;
+
+      std::string error;
+      std::string warning;
+
+      bool result = [&]() -> bool {
+        TinyGLTF loader;
+        std::string canonical = fs::canonical(gltf_path).string();
+
+        std::cout << std::format("[GTLF] Loading \"{}\"\n", canonical);
+
+        if (extension == ".gltf") {
+          return loader.LoadASCIIFromFile(&model, &error, &warning, canonical);
+        } else {
+          return loader.LoadBinaryFromFile(&model, &error, &warning, canonical);
+        }
+      }();
+
+      if (!warning.empty()) {
+        std::cout << std::format("[GLTF] Warning: {}\n", warning);
+      }
+
+      if (!error.empty()) {
+        std::cout << std::format("[GLSL] Error: {}\n", error);
+      }
+
+      if (!result) {
+        return {};
+      }
+
+      // Prevents crash from happening for now
+      new_geometry.type = Geometry::Type::Sphere;
     }
 
     const auto& trans = object["TRANS"];
@@ -121,7 +173,7 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
   camera.pixel_length = glm::vec2(2 * x_scaled / static_cast<float>(camera.resolution.x),
                                   2 * y_scaled / static_cast<float>(camera.resolution.y));
 
-  return {
+  return Settings{
       .max_iterations = camera_data["ITERATIONS"],
       .max_depth = camera_data["DEPTH"],
       .original_camera = camera,

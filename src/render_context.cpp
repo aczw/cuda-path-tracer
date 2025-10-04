@@ -23,19 +23,26 @@ RenderContext::RenderContext() : start_time(get_current_time()), curr_iteration(
 
 bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
   std::string file_name = scene_file.filename().string();
-  std::cout << std::format("[Scene] Opening \"{}\"", file_name) << std::endl;
 
   if (!std::filesystem::exists(scene_file)) {
-    std::cerr << std::format("[Scene] Error: \"{}\" does not exist", file_name) << std::endl;
+    std::cerr << std::format("[Scene] Error: \"{}\" does not exist\n", file_name);
     return false;
   }
 
   if (scene_file.extension() != ".json") {
-    std::cerr << std::format("[Scene] Error: \"{}\" is not a JSON file", file_name) << std::endl;
+    std::cerr << std::format("[Scene] Error: \"{}\" is not a JSON file\n", file_name);
     return false;
   }
 
-  settings = scene.load_from_json(scene_file);
+  std::cout << std::format("[Scene] Opening \"{}\"\n",
+                           std::filesystem::canonical(scene_file).string());
+
+  if (Opt<Settings> settings_opt = scene.load_from_json(scene_file); settings_opt) {
+    settings = std::move(settings_opt.value());
+  } else {
+    return false;
+  }
+
   const Camera& camera = scene.camera;
 
   // Color initial image black

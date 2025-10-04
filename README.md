@@ -216,6 +216,8 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 
 I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
+I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary GLTF models (both GLTF and GLB files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the GLTF model you wish to load.
+
 ### Testing
 
 Some other stuff I've changed that should probably be pointed out:

@@ -305,27 +305,6 @@ int main(int argc, char* argv[]) {
     return EXIT_FAILURE;
   }
 
-  using namespace tinygltf;
-
-  Model model;
-  TinyGLTF loader;
-  std::string error;
-  std::string warning;
-
-  bool result = loader.LoadBinaryFromFile(&model, &error, &warning, "../../../models/cube.glb");
-
-  if (!warning.empty()) {
-    std::cout << std::format("[GLTF] Warning: {}\n", warning);
-  }
-
-  if (!error.empty()) {
-    std::cout << std::format("[GLSL] Error: {}\n", error);
-  }
-
-  if (!result) {
-    return EXIT_FAILURE;
-  }
-
   loop(ctx.get(), window.get());
   free_components(ctx.get());
 

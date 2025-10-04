@@ -2,6 +2,7 @@
 
 #include "camera.hpp"
 #include "material.hpp"
+#include "utilities.cuh"
 
 #include <glm/glm.hpp>
 
@@ -32,7 +33,7 @@ struct Settings {
 
 class Scene {
  public:
-  Settings load_from_json(std::filesystem::path scene_file);
+  Opt<Settings> load_from_json(std::filesystem::path scene_file);
 
   Camera camera;
   std::vector<std::unique_ptr<Geometry>> geometry_list;
