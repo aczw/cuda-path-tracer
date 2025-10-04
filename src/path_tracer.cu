@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <ranges>
 
 namespace kernel {
 
@@ -170,9 +171,18 @@ void PathTracer::initialize() {
   cudaMalloc(&dev_image, num_pixels * sizeof(glm::vec3));
   cudaMemset(dev_image, 0, num_pixels * sizeof(glm::vec3));
 
-  const std::vector<Geometry>& geometry = ctx->scene.geometry_list;
+  // Use a temporary "staging" vector that copies over the direct geometry data by
+  // dereferncing each smart pointer
+  const std::vector<std::unique_ptr<Geometry>>& geometry = ctx->scene.geometry_list;
+  std::vector<Geometry> staging_geometry;
+  staging_geometry.reserve(geometry.size());
+
+  std::ranges::copy(
+      std::views::transform(geometry, [](const std::unique_ptr<Geometry>& ptr) { return *ptr; }),
+      std::back_inserter(staging_geometry));
+
   cudaMalloc(&dev_geometry_list, geometry.size() * sizeof(Geometry));
-  cudaMemcpy(dev_geometry_list, geometry.data(), geometry.size() * sizeof(Geometry),
+  cudaMemcpy(dev_geometry_list, staging_geometry.data(), geometry.size() * sizeof(Geometry),
              cudaMemcpyHostToDevice);
 
   const std::vector<Material>& materials = ctx->scene.material_list;

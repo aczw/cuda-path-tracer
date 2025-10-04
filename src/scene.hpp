@@ -6,12 +6,13 @@
 #include <glm/glm.hpp>
 
 #include <filesystem>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 
 struct Geometry {
-  enum class Type { Sphere, Cube } type;
+  enum class Type { Sphere, Cube, Gltf } type;
   char material_id;
 
   glm::vec3 translation;
@@ -34,6 +35,6 @@ class Scene {
   Settings load_from_json(std::filesystem::path scene_file);
 
   Camera camera;
-  std::vector<Geometry> geometry_list;
+  std::vector<std::unique_ptr<Geometry>> geometry_list;
   std::vector<Material> material_list;
 };

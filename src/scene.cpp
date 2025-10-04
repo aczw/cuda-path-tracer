@@ -68,8 +68,10 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     const auto& type = object["TYPE"];
     if (type == "cube") {
       new_geometry.type = Geometry::Type::Cube;
-    } else {
+    } else if (type == "sphere") {
       new_geometry.type = Geometry::Type::Sphere;
+    } else {
+      new_geometry.type = Geometry::Type::Gltf;
     }
 
     const auto& trans = object["TRANS"];
@@ -91,7 +93,7 @@ Settings Scene::load_from_json(std::filesystem::path scene_file) {
     new_geometry.inv_transform = glm::inverse(new_geometry.transform);
     new_geometry.inv_transpose = glm::inverseTranspose(new_geometry.transform);
 
-    geometry_list.push_back(new_geometry);
+    geometry_list.push_back(std::make_unique<Geometry>(std::move(new_geometry)));
   }
 
   // Parse camera data and other settings
