@@ -189,6 +189,10 @@ Materials followed a similar pattern.
 
 At first everything was gravy. But then I ran into other bugs. And, when the two most important kernel invocations in your program are wrapped in confusing C++ function calls, it makes it a little difficult to debug errors.
 
+### GLTF model loading
+
+I added `tiny_gltf` to the project.
+
 ## Credits
 
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
@@ -199,6 +203,7 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 
 - Moved the `include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")` call out of the `if(UNIX)` branch to make it available on Windows as well
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
+- Renamed `stb.cpp` to `external.cpp` because I added `tiny_gltf` as well.
 - Updated to C++20.
 
 ### Changes to the scene file format
@@ -216,6 +221,7 @@ I removed the `Specular` material type because I didn't technically implement ro
 Some other stuff I've changed that should probably be pointed out:
 
 - Pressing Esc does not save an image anymore. Pressing S still does this.
+- I had to update the `stb_image` and `stb_image_write` versions because otherwise `tiny_gltf` would not compile.
 
 [^1]: This `lambert` term should not to be confused with the Lambertian diffuse model. It's part of the overall light transport equation and must be computed for all materials.
 [^2]: Technically, I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.

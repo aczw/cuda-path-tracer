@@ -17,6 +17,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
+#include <tiny_gltf.h>
 
 #include <array>
 #include <cstdlib>
@@ -301,6 +302,27 @@ int main(int argc, char* argv[]) {
   }
 
   if (!initialize_components(ctx.get(), window.get())) {
+    return EXIT_FAILURE;
+  }
+
+  using namespace tinygltf;
+
+  Model model;
+  TinyGLTF loader;
+  std::string error;
+  std::string warning;
+
+  bool result = loader.LoadBinaryFromFile(&model, &error, &warning, "../../../models/cube.glb");
+
+  if (!warning.empty()) {
+    std::cout << std::format("[GLTF] Warning: {}\n", warning);
+  }
+
+  if (!error.empty()) {
+    std::cout << std::format("[GLSL] Error: {}\n", error);
+  }
+
+  if (!result) {
     return EXIT_FAILURE;
   }
 

@@ -77,7 +77,7 @@ set(sources
     src/camera.cpp
 
     src/main.cpp
-    src/stb.cpp
+    src/external.cpp
 )
 
 set(imgui_headers

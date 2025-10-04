@@ -13,7 +13,7 @@ IncludeCategories:
     Priority: 1
   - Regex: '^<(cuda|thrust|cub)/?.*>'
     Priority: 2
-  - Regex: '^<(glm|stb|GL|GLFW)/?.*>'
+  - Regex: '^<(glm|stb|GL|GLFW|tiny_gltf)/?.*>'
     Priority: 3
   - Regex: '^<.*>'
     Priority: 4
