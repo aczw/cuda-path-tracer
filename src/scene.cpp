@@ -220,15 +220,34 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
     }
 
     const Accessor& idx_accessor = model.accessors[primitive.indices];
-    if (idx_accessor.type != TINYGLTF_TYPE_SCALAR ||
-        idx_accessor.componentType != TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
-      print_error("vertex indices are not scalars (uint16_t)");
-      return false;
-    }
     const BufferView& idx_bv = model.bufferViews[idx_accessor.bufferView];
     const Buffer& idx_buffer = model.buffers[idx_bv.buffer];
-    const uint16_t* indices = reinterpret_cast<const uint16_t*>(
-        &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset]);
+    std::vector<int> indices;
+
+    const unsigned char* begin = &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset];
+    switch (idx_accessor.componentType) {
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
+        const uint16_t* temp = reinterpret_cast<const uint16_t*>(begin);
+        for (int i = 0; i < idx_accessor.count; ++i) {
+          indices.push_back(static_cast<int>(temp[i]));
+        }
+
+        break;
+      }
+
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
+        const uint32_t* temp = reinterpret_cast<const uint32_t*>(begin);
+        for (int i = 0; i < idx_accessor.count; ++i) {
+          indices.push_back(static_cast<int>(temp[i]));
+        }
+
+        break;
+      }
+
+      default:
+        print_error("unknown vertex index component type");
+        return false;
+    };
 
     const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
     if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
@@ -274,8 +293,7 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
 
       // Iterate over each vertex in the triangle, and map to new index
       for (int j = i; j < i + 3; ++j) {
-        int old_idx = indices[j];
-        int offset = old_idx * 3;
+        int offset = indices[j] * 3;
 
         // Find the position data (which we added in the previous step) in the list
         // and use its index for this vertex
