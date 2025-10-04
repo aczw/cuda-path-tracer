@@ -76,7 +76,7 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
       new_geometry.type = Geometry::Type::Sphere;
     } else {
       // Changed so things don't crash
-      new_geometry.type = Geometry::Type::Sphere;
+      new_geometry.type = Geometry::Type::Gltf;
 
       std::filesystem::path gltf_path = object["PATH"];
       std::string file_name = gltf_path.filename().string();

@@ -2,6 +2,8 @@
 
 #include <cuda/std/limits>
 
+#include <glm/gtx/intersect.hpp>
+
 __device__ Intersection test_cube_isect(Geometry cube, Ray ray) {
   float t_min = cuda::std::numeric_limits<float>::lowest();
   float t_max = cuda::std::numeric_limits<float>::max();
@@ -111,6 +113,54 @@ __device__ Intersection test_sphere_isect(Geometry sphere, Ray ray) {
   return isect;
 }
 
+__device__ Intersection test_gltf_isect(Geometry gltf,
+                                        Ray ray,
+                                        Triangle* triangle_list,
+                                        glm::vec3* position_list) {
+  Intersection isect;
+  isect.t = -1.f;
+
+  Ray obj_ray = {
+      .origin = glm::vec3(gltf.inv_transform * glm::vec4(ray.origin, 1.f)),
+      .direction = glm::normalize(glm::vec3(gltf.inv_transform * glm::vec4(ray.direction, 0.f))),
+  };
+
+  for (int tri_idx = gltf.tri_begin; tri_idx < gltf.tri_end; ++tri_idx) {
+    const Triangle& triangle = triangle_list[tri_idx];
+    const glm::vec3 v0 = position_list[triangle.x];
+    const glm::vec3 v1 = position_list[triangle.y];
+    const glm::vec3 v2 = position_list[triangle.z];
+
+    glm::vec3 bary_pos;
+    if (!glm::intersectRayTriangle(obj_ray.origin, obj_ray.direction, v0, v1, v2, bary_pos)) {
+      continue;
+    }
+
+    glm::vec3 point = bary_pos.x * v0 + bary_pos.y * v1 + bary_pos.z * v2;
+    glm::vec3 v0_to_v1 = v1 - v0;
+    glm::vec3 v0_to_v2 = v2 - v0;
+    glm::vec3 normal = glm::normalize(glm::cross(v0_to_v1, v0_to_v2));
+
+    float dir = glm::dot(normal, obj_ray.direction);
+    if (dir < 0.f) {
+      isect.surface = Surface::Outside;
+    } else if (dir > 0.f) {
+      isect.surface = Surface::Inside;
+    } else {
+      continue;
+    }
+
+    isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
+    isect.t = glm::distance(point, obj_ray.origin);
+    isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(normal, 0.f)));
+    isect.material_id = gltf.material_id;
+
+    return isect;
+  }
+
+  return isect;
+}
+
 namespace kernel {
 
 __global__ void find_intersections(int num_paths,
@@ -152,6 +202,10 @@ __global__ void find_intersections(int num_paths,
 
       case Geometry::Type::Sphere:
         curr_isect = test_sphere_isect(geometry, segment_ray);
+        break;
+
+      case Geometry::Type::Gltf:
+        curr_isect = test_gltf_isect(geometry, segment_ray, triangle_list, position_list);
         break;
 
       default:

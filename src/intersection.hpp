@@ -30,6 +30,11 @@ __device__ Intersection test_cube_isect(Geometry cube, Ray ray);
 /// sphere always has radius 0.5 and is centered at the origin.
 __device__ Intersection test_sphere_isect(Geometry sphere, Ray ray);
 
+__device__ Intersection test_gltf_isect(Geometry gltf,
+                                        Ray ray,
+                                        Triangle* triangle_list,
+                                        glm::vec3* position_list);
+
 namespace kernel {
 
 /// Finds the intersection with scene geometry, if any.
