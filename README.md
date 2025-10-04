@@ -189,9 +189,19 @@ Materials followed a similar pattern.
 
 At first everything was gravy. But then I ran into other bugs. And, when the two most important kernel invocations in your program are wrapped in confusing C++ function calls, it makes it a little difficult to debug errors.
 
-### GLTF model loading
+### glTF model loading
 
 I added `tiny_gltf` to the project.
+
+My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
+
+|**Not taking the minimum `t` value**|**Taking the minimum `t` value**|
+|:-:|:-:|
+|![](images/not_taking_t_min.png)|![](images/taking_t_min.png)|
+
+On the left we can see Suzanne's eyes are protruding out of the face when they should be shadowed by the eyebrows, as seen on the right.
+
+Therefore, similar to the logic for finding the closest geometry, we keep track of the smallest `t` value found so far, and update the intersection data only if we've found a closer one. This means that we cannot return early because the closest triangle may be the last one in the triangle list.
 
 ## Credits
 
@@ -216,7 +226,7 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 
 I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
-I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary GLTF models (both GLTF and GLB files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the GLTF model you wish to load.
+I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary glTF models (both .gltf and .glb files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the glTF model you wish to load.
 
 ### Testing
 
