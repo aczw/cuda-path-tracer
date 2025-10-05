@@ -105,6 +105,10 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
     new_geometry.material_id = mat_name_to_id.at(object["MATERIAL"]);
     new_geometry.tri_begin = -1;
     new_geometry.tri_end = -1;
+    new_geometry.bbox = {
+        .min = glm::vec3(cuda::std::numeric_limits<float>::infinity()),
+        .max = -glm::vec3(cuda::std::numeric_limits<float>::infinity()),
+    };
 
     const auto& type = object["TYPE"];
     if (type == "cube") {
@@ -134,6 +138,8 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
     new_geometry.transform = transform;
     new_geometry.inv_transform = glm::inverse(new_geometry.transform);
     new_geometry.inv_transpose = glm::inverseTranspose(new_geometry.transform);
+
+    build_bounding_box(new_geometry);
 
     geometry_list.push_back(std::move(new_geometry));
   }
@@ -327,4 +333,28 @@ const float* Scene::collect_unique_normals(const tinygltf::Model& model,
   }
 
   return nor;
+}
+
+void build_bounding_box(Geometry& geometry) {
+  Aabb& bbox = geometry.bbox;
+
+  switch (geometry.type) {
+    case Geometry::Type::Sphere:
+    case Geometry::Type::Cube: {
+      glm::vec3 world_min = glm::vec3(geometry.transform * glm::vec4(-0.5f, -0.5f, -0.5f, 1.f));
+      glm::vec3 world_max = glm::vec3(geometry.transform * glm::vec4(0.5f, 0.5f, 0.5f, 1.f));
+      bbox.include(world_min);
+      bbox.include(world_max);
+      std::cout << std::format("geom min: [{}, {}, {}]\n", world_min.x, world_min.y, world_min.z);
+      std::cout << std::format("geom max: [{}, {}, {}]\n", world_max.x, world_max.y, world_max.z);
+      break;
+    }
+
+    case Geometry::Type::Gltf: {
+      break;
+    }
+
+    default:
+      break;
+  }
 }

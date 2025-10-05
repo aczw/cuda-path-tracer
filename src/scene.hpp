@@ -105,3 +105,6 @@ class Scene {
   const float* collect_unique_normals(const tinygltf::Model& model,
                                       const tinygltf::Accessor& nor_accessor);
 };
+
+/// Builds the bounding box for the corresponding geometry, and stores it.
+void build_bounding_box(Geometry& geometry);

@@ -191,7 +191,7 @@ At first everything was gravy. But then I ran into other bugs. And, when the two
 
 ### glTF model loading
 
-I added `tiny_gltf` to the project.
+I added `tiny_gltf` to the project. It does not consider scene hierarchy or transformations, and only loads the first mesh in the glTF file.
 
 My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
 
