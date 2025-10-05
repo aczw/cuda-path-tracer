@@ -2,7 +2,7 @@
 
 #include "material.hpp"
 #include "path_segment.hpp"
-#include "ray.cuh"
+#include "ray.hpp"
 #include "scene.hpp"
 
 #include <cuda_runtime.h>
@@ -24,13 +24,13 @@ struct Intersection {
 
 /// Test intersection between a ray and a transformed cube. Untransformed, the
 /// cube ranges from -0.5 to 0.5 in each axis and is centered at the origin.
-__device__ Intersection test_cube_isect(Geometry cube, Ray ray);
+__device__ Intersection test_cube_isect(const Geometry& cube, Ray ray);
 
 /// Test intersection between a ray and a transformed sphere. Untransformed, the
 /// sphere always has radius 0.5 and is centered at the origin.
-__device__ Intersection test_sphere_isect(Geometry sphere, Ray ray);
+__device__ Intersection test_sphere_isect(const Geometry& sphere, Ray ray);
 
-__device__ Intersection test_gltf_isect(Geometry gltf,
+__device__ Intersection test_gltf_isect(const Geometry& gltf,
                                         Ray ray,
                                         Triangle* triangle_list,
                                         glm::vec3* position_list,
@@ -47,6 +47,7 @@ __global__ void find_intersections(int num_paths,
                                    glm::vec3* position_list,
                                    glm::vec3* normal_list,
                                    PathSegment* segments,
-                                   Intersection* intersections);
+                                   Intersection* intersections,
+                                   bool bbox_isect_culling);
 
 }  // namespace kernel

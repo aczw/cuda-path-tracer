@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ray.cuh"
+#include "ray.hpp"
 
 #include <glm/glm.hpp>
 

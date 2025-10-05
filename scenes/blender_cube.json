@@ -84,7 +84,7 @@
         },
         {
             "TYPE":"gltf",
-            "PATH": "../models/blender_cube/blender_cube.gltf",
+            "PATH": "../../../models/blender_cube/blender_cube.gltf",
             "MATERIAL":"diffuse_white",
             "TRANS":[0.0,4.0,-1.0],
             "ROTAT":[0.0,0.0,0.0],

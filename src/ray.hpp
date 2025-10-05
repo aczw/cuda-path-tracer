@@ -2,7 +2,7 @@
 
 #include "utilities.cuh"
 
-#include <cuda_runtime.h>
+#include <cuda_runtime_api.h>
 
 #include <glm/glm.hpp>
 

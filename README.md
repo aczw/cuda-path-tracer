@@ -226,6 +226,7 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 - Moved the `include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")` call out of the `if(UNIX)` branch to make it available on Windows as well
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
 - Renamed `stb.cpp` to `external.cpp` because I added `tiny_gltf` as well.
+- I use VS Code for development, so all my relative paths in the scene files are different from the ones used in Visual Studio. I find that I have to remove two of the "../" for Visual Studio to work.
 - Updated to C++20.
 
 ### Changes to the scene file format

@@ -77,6 +77,7 @@ bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
       .settings = &settings,
 
       .sort_paths_by_material = true,
+      .bbox_isect_culling = true,
       .discard_oob_paths = true,
       .discard_light_isect_paths = true,
 

@@ -4,7 +4,7 @@
 
 #include <glm/gtx/intersect.hpp>
 
-__device__ Intersection test_cube_isect(Geometry cube, Ray ray) {
+__device__ Intersection test_cube_isect(const Geometry& cube, Ray ray) {
   float t_min = cuda::std::numeric_limits<float>::lowest();
   float t_max = cuda::std::numeric_limits<float>::max();
   glm::vec3 t_min_n;
@@ -62,7 +62,7 @@ __device__ Intersection test_cube_isect(Geometry cube, Ray ray) {
   return isect;
 }
 
-__device__ Intersection test_sphere_isect(Geometry sphere, Ray ray) {
+__device__ Intersection test_sphere_isect(const Geometry& sphere, Ray ray) {
   static const float radius = 0.5f;
 
   Intersection isect;
@@ -113,7 +113,7 @@ __device__ Intersection test_sphere_isect(Geometry sphere, Ray ray) {
   return isect;
 }
 
-__device__ Intersection test_gltf_isect(Geometry gltf,
+__device__ Intersection test_gltf_isect(const Geometry& gltf,
                                         Ray ray,
                                         Triangle* triangle_list,
                                         glm::vec3* position_list,
@@ -174,7 +174,8 @@ __global__ void find_intersections(int num_paths,
                                    glm::vec3* position_list,
                                    glm::vec3* normal_list,
                                    PathSegment* segments,
-                                   Intersection* intersections) {
+                                   Intersection* intersections,
+                                   bool bbox_isect_culling) {
   int segment_index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (segment_index >= num_paths) {
@@ -193,10 +194,13 @@ __global__ void find_intersections(int num_paths,
   Intersection isect;
   isect.t = -1.f;
 
-  // Naively parse through global geometry
-  // TODO(aczw): use better intersection algorithm i.e. acceleration structures
   for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
-    Geometry geometry = geometry_list[geometry_index];
+    const Geometry& geometry = geometry_list[geometry_index];
+
+    if (bbox_isect_culling && !geometry.bbox.intersect(segment_ray)) {
+      continue;
+    }
+
     Intersection curr_isect;
 
     switch (geometry.type) {

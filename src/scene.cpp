@@ -351,6 +351,7 @@ void build_bounding_box(Geometry& geometry) {
     }
 
     case Geometry::Type::Gltf: {
+      std::cout << "gltf no bbox yet :(\n";
       break;
     }
 

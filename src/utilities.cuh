@@ -4,6 +4,8 @@
 #include <cuda_runtime.h>
 #include <thrust/random.h>
 
+#include <glm/glm.hpp>
+
 #include <filesystem>
 #include <format>
 #include <iostream>
@@ -58,7 +60,7 @@ __host__ __device__ inline thrust::default_random_engine make_seeded_random_engi
 /// Divides `a` by `b` and rounds it up to the nearest integer.
 __host__ __device__ constexpr int divide_ceil(int a, int b) {
   return (a + b - 1) / b;
-};
+}
 
 /// Always assumes an outward-facing normal.
 __host__ __device__ inline float cos_theta(glm::vec3 normal, glm::vec3 omega) {

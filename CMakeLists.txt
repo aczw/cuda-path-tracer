@@ -62,7 +62,7 @@ set(headers
     src/material.hpp
     src/path_segment.hpp
     src/utilities.cuh
-    src/ray.cuh
+    src/ray.hpp
 )
 
 set(sources
