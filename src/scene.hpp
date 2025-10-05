@@ -15,6 +15,26 @@
 #include <string_view>
 #include <vector>
 
+/// Helper for converting glTF vertex indices of any component type to a vector of integers.
+template <class T>
+std::vector<int> reinterpret_indices_as(const tinygltf::Model& model,
+                                        const tinygltf::Accessor& idx_accessor) {
+  using namespace tinygltf;
+
+  const BufferView& idx_bv = model.bufferViews[idx_accessor.bufferView];
+  const Buffer& idx_buffer = model.buffers[idx_bv.buffer];
+
+  std::vector<int> indices;
+  const unsigned char* begin = &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset];
+  const T* temp = reinterpret_cast<const T*>(begin);
+
+  for (int i = 0; i < idx_accessor.count; ++i) {
+    indices.push_back(static_cast<int>(temp[i]));
+  }
+
+  return indices;
+}
+
 struct Vertex {
   int pos_idx;
   int nor_idx;
@@ -66,4 +86,12 @@ class Scene {
   bool try_load_gltf_into_geometry(Geometry& geometry,
                                    const tinygltf::Model& model,
                                    std::function<void(std::string_view)> print_error);
+
+  /// Collect unique positions into global geometry list. We will reference their indices later.
+  const float* collect_unique_positions(const tinygltf::Model& model,
+                                        const tinygltf::Accessor& pos_accessor);
+
+  // Collect unique normals into global geometry list. We will reference their indices later.
+  const float* collect_unique_normals(const tinygltf::Model& model,
+                                      const tinygltf::Accessor& nor_accessor);
 };

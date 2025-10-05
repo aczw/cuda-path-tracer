@@ -220,29 +220,16 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
     }
 
     const Accessor& idx_accessor = model.accessors[primitive.indices];
-    const BufferView& idx_bv = model.bufferViews[idx_accessor.bufferView];
-    const Buffer& idx_buffer = model.buffers[idx_bv.buffer];
     std::vector<int> indices;
 
-    const unsigned char* begin = &idx_buffer.data[idx_bv.byteOffset + idx_accessor.byteOffset];
     switch (idx_accessor.componentType) {
-      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT: {
-        const uint16_t* temp = reinterpret_cast<const uint16_t*>(begin);
-        for (int i = 0; i < idx_accessor.count; ++i) {
-          indices.push_back(static_cast<int>(temp[i]));
-        }
-
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+        indices = reinterpret_indices_as<uint16_t>(model, idx_accessor);
         break;
-      }
 
-      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT: {
-        const uint32_t* temp = reinterpret_cast<const uint32_t*>(begin);
-        for (int i = 0; i < idx_accessor.count; ++i) {
-          indices.push_back(static_cast<int>(temp[i]));
-        }
-
+      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+        indices = reinterpret_indices_as<uint32_t>(model, idx_accessor);
         break;
-      }
 
       default:
         print_error("unknown vertex index component type");
@@ -254,38 +241,14 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
       print_error("position component type is not a float");
       return false;
     }
-    const BufferView& pos_bv = model.bufferViews[pos_accessor.bufferView];
-    const Buffer& pos_buffer = model.buffers[pos_bv.buffer];
-    const float* positions = reinterpret_cast<const float*>(
-        &pos_buffer.data[pos_bv.byteOffset + pos_accessor.byteOffset]);
-
-    // Collect unique positions into global geometry list. We will reference their indices later
-    for (int offset = 0; offset < pos_accessor.count; ++offset) {
-      glm::vec3 pos(positions[offset * 3], positions[offset * 3 + 1], positions[offset * 3 + 2]);
-
-      if (auto it = std::ranges::find(position_list, pos); it == position_list.end()) {
-        position_list.push_back(std::move(pos));
-      }
-    }
+    const float* raw_pos = collect_unique_positions(model, pos_accessor);
 
     const Accessor& nor_accessor = model.accessors[primitive.attributes.at("NORMAL")];
     if (nor_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
       print_error("normal component type is not a float");
       return false;
     }
-    const BufferView& nor_bv = model.bufferViews[nor_accessor.bufferView];
-    const Buffer& nor_buffer = model.buffers[nor_bv.buffer];
-    const float* normals = reinterpret_cast<const float*>(
-        &nor_buffer.data[nor_bv.byteOffset + nor_accessor.byteOffset]);
-
-    // Collect unique normals into global geometry list. We will reference their indices later
-    for (int offset = 0; offset < nor_accessor.count; ++offset) {
-      glm::vec3 nor(normals[offset * 3], normals[offset * 3 + 1], normals[offset * 3 + 2]);
-
-      if (auto it = std::ranges::find(normal_list, nor); it == normal_list.end()) {
-        normal_list.push_back(std::move(nor));
-      }
-    }
+    const float* raw_nor = collect_unique_normals(model, nor_accessor);
 
     // Iterate over each triangle
     for (int i = 0; i < idx_accessor.count; i += 3) {
@@ -297,7 +260,7 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
 
         // Find the position data (which we added in the previous step) in the list
         // and use its index for this vertex
-        glm::vec3 pos(positions[offset], positions[offset + 1], positions[offset + 2]);
+        glm::vec3 pos(raw_pos[offset], raw_pos[offset + 1], raw_pos[offset + 2]);
         if (auto it = std::ranges::find(position_list, pos); it != position_list.end()) {
           auto new_idx = std::ranges::distance(position_list.begin(), it);
           triangle[j - i].pos_idx = new_idx;
@@ -308,7 +271,7 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
 
         // Find the normal data (which we added in the previous step) in the list
         // and use its index for this vertex
-        glm::vec3 nor(normals[offset], normals[offset + 1], normals[offset + 2]);
+        glm::vec3 nor(raw_nor[offset], raw_nor[offset + 1], raw_nor[offset + 2]);
         if (auto it = std::ranges::find(normal_list, nor); it != normal_list.end()) {
           auto new_idx = std::ranges::distance(normal_list.begin(), it);
           triangle[j - i].nor_idx = new_idx;
@@ -329,4 +292,42 @@ bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
   geometry.tri_end = tri_end;
 
   return true;
+}
+
+const float* Scene::collect_unique_positions(const tinygltf::Model& model,
+                                             const tinygltf::Accessor& pos_accessor) {
+  using namespace tinygltf;
+
+  const BufferView& bv = model.bufferViews[pos_accessor.bufferView];
+  const Buffer& buf = model.buffers[bv.buffer];
+  auto pos = reinterpret_cast<const float*>(&buf.data[bv.byteOffset + pos_accessor.byteOffset]);
+
+  for (int offset = 0; offset < pos_accessor.count; ++offset) {
+    glm::vec3 position(pos[offset * 3], pos[offset * 3 + 1], pos[offset * 3 + 2]);
+
+    if (auto it = std::ranges::find(position_list, position); it == position_list.end()) {
+      position_list.push_back(std::move(position));
+    }
+  }
+
+  return pos;
+}
+
+const float* Scene::collect_unique_normals(const tinygltf::Model& model,
+                                           const tinygltf::Accessor& nor_accessor) {
+  using namespace tinygltf;
+
+  const BufferView& bv = model.bufferViews[nor_accessor.bufferView];
+  const Buffer& buf = model.buffers[bv.buffer];
+  auto nor = reinterpret_cast<const float*>(&buf.data[bv.byteOffset + nor_accessor.byteOffset]);
+
+  for (int offset = 0; offset < nor_accessor.count; ++offset) {
+    glm::vec3 normal(nor[offset * 3], nor[offset * 3 + 1], nor[offset * 3 + 2]);
+
+    if (auto it = std::ranges::find(normal_list, normal); it == normal_list.end()) {
+      normal_list.push_back(std::move(normal));
+    }
+  }
+
+  return nor;
 }
