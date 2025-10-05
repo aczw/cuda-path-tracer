@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ray.hpp"
+#include "scene.hpp"
 
 #include <cuda/std/limits>
 #include <cuda_runtime_api.h>

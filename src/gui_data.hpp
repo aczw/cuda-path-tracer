@@ -14,4 +14,8 @@ struct GuiData {
   bool apply_tone_mapping;
 
   CameraSettings camera;
+
+  bool operator!=(const GuiData& other) const {
+    return camera != other.camera || apply_tone_mapping != other.apply_tone_mapping;
+  }
 };

@@ -335,7 +335,7 @@ const float* Scene::collect_unique_normals(const tinygltf::Model& model,
   return nor;
 }
 
-void build_bounding_box(Geometry& geometry) {
+void Scene::build_bounding_box(Geometry& geometry) {
   Aabb& bbox = geometry.bbox;
 
   switch (geometry.type) {
@@ -345,13 +345,20 @@ void build_bounding_box(Geometry& geometry) {
       glm::vec3 world_max = glm::vec3(geometry.transform * glm::vec4(0.5f, 0.5f, 0.5f, 1.f));
       bbox.include(world_min);
       bbox.include(world_max);
-      std::cout << std::format("geom min: [{}, {}, {}]\n", world_min.x, world_min.y, world_min.z);
-      std::cout << std::format("geom max: [{}, {}, {}]\n", world_max.x, world_max.y, world_max.z);
       break;
     }
 
     case Geometry::Type::Gltf: {
-      std::cout << "gltf no bbox yet :(\n";
+      for (int tri_idx = geometry.tri_begin; tri_idx < geometry.tri_end; ++tri_idx) {
+        const Triangle& triangle = triangle_list[tri_idx];
+
+        for (int vert = 0; vert < 3; ++vert) {
+          glm::vec3 pos = position_list[triangle[vert].pos_idx];
+          glm::vec3 world_pos = glm::vec3(geometry.transform * glm::vec4(pos, 1.f));
+          bbox.include(world_pos);
+        }
+      }
+
       break;
     }
 

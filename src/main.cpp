@@ -235,10 +235,7 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
       prev_camera = ctx->scene.camera;
     }
 
-    if (prev_gui_data.camera != gui_data->camera ||
-        prev_gui_data.apply_tone_mapping != gui_data->apply_tone_mapping) {
-      ctx->curr_iteration = 0;
-    }
+    if (prev_gui_data != *gui_data) ctx->curr_iteration = 0;
 
     if (ctx->curr_iteration == 0) {
       path_tracer.free();
@@ -296,19 +293,12 @@ int main(int argc, char* argv[]) {
 
   std::unique_ptr ctx = std::make_unique<RenderContext>();
 
-  if (!ctx->try_open_scene(argv[1])) {
-    return EXIT_FAILURE;
-  }
+  if (!ctx->try_open_scene(argv[1])) return EXIT_FAILURE;
 
   Window window(ctx.get());
 
-  if (!window.try_init()) {
-    return EXIT_FAILURE;
-  }
-
-  if (!initialize_components(ctx.get(), window.get())) {
-    return EXIT_FAILURE;
-  }
+  if (!window.try_init()) return EXIT_FAILURE;
+  if (!initialize_components(ctx.get(), window.get())) return EXIT_FAILURE;
 
   loop(ctx.get(), window.get());
   free_components(ctx.get());
