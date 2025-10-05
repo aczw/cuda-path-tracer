@@ -113,21 +113,17 @@ __device__ Intersection test_sphere_isect(const Geometry& sphere, Ray ray) {
   return isect;
 }
 
-__device__ Intersection test_gltf_isect(const Geometry& gltf,
-                                        Ray ray,
-                                        Triangle* triangle_list,
-                                        glm::vec3* position_list,
-                                        glm::vec3* normal_list) {
+__device__ Intersection test_tri_list_isect(int tri_idx_begin,
+                                            int tri_idx_end,
+                                            Ray obj_ray,
+                                            const Triangle* triangle_list,
+                                            const glm::vec3* position_list,
+                                            const glm::vec3* normal_list) {
   Intersection isect;
   isect.t = -1.f;
   float t_min = cuda::std::numeric_limits<float>::max();
 
-  Ray obj_ray = {
-      .origin = glm::vec3(gltf.inv_transform * glm::vec4(ray.origin, 1.f)),
-      .direction = glm::vec3(gltf.inv_transform * glm::vec4(ray.direction, 0.f)),
-  };
-
-  for (int tri_idx = gltf.tri_begin; tri_idx < gltf.tri_end; ++tri_idx) {
+  for (int tri_idx = tri_idx_begin; tri_idx < tri_idx_end; ++tri_idx) {
     const Triangle& triangle = triangle_list[tri_idx];
     const glm::vec3 v0 = position_list[triangle[0].pos_idx];
     const glm::vec3 v1 = position_list[triangle[1].pos_idx];
@@ -152,14 +148,37 @@ __device__ Intersection test_gltf_isect(const Geometry& gltf,
         isect.surface = Surface::Inside;
       }
 
-      isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(normal, 0.f)));
-      isect.point = glm::vec3(gltf.transform * glm::vec4(point, 1.f));
+      // Keep in local space, perform transform outside
+      isect.normal = normal;
+      isect.point = point;
       isect.t = bary.z;
-      isect.material_id = gltf.material_id;
 
       t_min = isect.t;
     }
   }
+
+  return isect;
+}
+
+__device__ Intersection test_gltf_isect(const Geometry& gltf,
+                                        Ray ray,
+                                        Triangle* triangle_list,
+                                        glm::vec3* position_list,
+                                        glm::vec3* normal_list) {
+  Ray obj_ray = {
+      .origin = glm::vec3(gltf.inv_transform * glm::vec4(ray.origin, 1.f)),
+      .direction = glm::vec3(gltf.inv_transform * glm::vec4(ray.direction, 0.f)),
+  };
+
+  Intersection isect = test_tri_list_isect(gltf.tri_begin, gltf.tri_end, obj_ray, triangle_list,
+                                           position_list, normal_list);
+
+  if (isect.t < 0.f) return isect;
+
+  // Transform back to world space
+  isect.normal = glm::normalize(glm::vec3(gltf.inv_transpose * glm::vec4(isect.normal, 0.f)));
+  isect.point = glm::vec3(gltf.transform * glm::vec4(isect.point, 1.f));
+  isect.material_id = gltf.material_id;
 
   return isect;
 }
