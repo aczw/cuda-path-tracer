@@ -10,8 +10,8 @@
 
 /// Axis-aligned bounding box.
 struct Aabb {
-  glm::vec3 min = glm::vec3(cuda::std::numeric_limits<float>::infinity());
-  glm::vec3 max = glm::vec3(-cuda::std::numeric_limits<float>::infinity());
+  glm::vec3 min = glm::vec3(cuda::std::numeric_limits<float>::max());
+  glm::vec3 max = glm::vec3(cuda::std::numeric_limits<float>::lowest());
 
   inline glm::vec3 get_center() const { return (min + max) / 2.f; }
 

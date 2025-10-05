@@ -32,26 +32,24 @@ inline void split(int parent_node_idx,
                   const glm::mat4 transform) {
   if (depth == MAX_DEPTH) return;
 
-  Node& parent = node_list[parent_node_idx];
-
   // Find axis to split along. Pick the axis by choosing the one with the biggest length
-  glm::vec3 size = parent.bbox.get_size();
+  glm::vec3 size = node_list[parent_node_idx].bbox.get_size();
   int axis = size.x > glm::max(size.y, size.z) ? 0 : size.y > size.z ? 1 : 2;
-  float center_pos = parent.bbox.get_center()[axis];
+  float center_pos = node_list[parent_node_idx].bbox.get_center()[axis];
 
   // Since we haven't reached the max depth, we further split this node
-  parent.child_idx = node_list.size();
-  int parent_tri_idx = parent.tri_idx;
+  node_list[parent_node_idx].child_idx = node_list.size();
+  int parent_tri_idx = node_list[parent_node_idx].tri_idx;
 
   node_list.emplace_back(Node{.tri_idx = parent_tri_idx, .child_idx = -1});
   node_list.emplace_back(Node{.tri_idx = parent_tri_idx, .child_idx = -1});
 
   // Iterators may have been invalidated, so get a new reference to parent
-  parent = node_list[parent_node_idx];
-  Node& c0 = node_list[parent.child_idx];
-  Node& c1 = node_list[parent.child_idx + 1];
+  Node& c0 = node_list[node_list[parent_node_idx].child_idx];
+  Node& c1 = node_list[node_list[parent_node_idx].child_idx + 1];
 
-  for (int tri_idx = parent_tri_idx; tri_idx < parent_tri_idx + parent.tri_count; ++tri_idx) {
+  for (int tri_idx = parent_tri_idx;
+       tri_idx < parent_tri_idx + node_list[parent_node_idx].tri_count; ++tri_idx) {
     const Triangle& triangle = tri_list[tri_idx];
 
     // Use center of triangle to determine which side of the parent it should be on
@@ -80,7 +78,7 @@ inline void split(int parent_node_idx,
     }
   }
 
-  int parent_child_idx = parent.child_idx;
+  int parent_child_idx = node_list[parent_node_idx].child_idx;
   split(parent_child_idx, depth + 1, node_list, tri_list, positions, transform);
   split(parent_child_idx + 1, depth + 1, node_list, tri_list, positions, transform);
 }

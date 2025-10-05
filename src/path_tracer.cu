@@ -266,10 +266,12 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     if (gui_data->discard_oob_paths) {
       end = thrust::partition(begin, end, op::is_not_oob{});
       num_paths = thrust::distance(begin, end);
+      check_cuda_error("thrust::partition: op::is_not_oob");
     }
 
     if (gui_data->sort_paths_by_material) {
       thrust::sort(begin, end, op::sort_by_material_id{});
+      check_cuda_error("thrust::sort: op::sort_by_material_id");
     }
 
     kernel::sample<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
@@ -282,6 +284,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     if (gui_data->discard_light_isect_paths) {
       end = thrust::partition(begin, end, op::is_not_light_isect{});
       num_paths = thrust::distance(begin, end);
+      check_cuda_error("thrust::partition: op::is_not_light_isect");
     }
 
     if (curr_depth == max_depth || num_paths == 0) {
