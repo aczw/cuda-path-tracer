@@ -35,7 +35,11 @@ class PathTracer {
 
   Geometry* dev_geometry_list;
   Material* dev_material_list;
+
   Triangle* dev_triangle_list;
+  bvh::Node* dev_bvh_node_list;
+  Triangle* dev_bvh_tri_list;
+
   glm::vec3* dev_position_list;
   glm::vec3* dev_normal_list;
 

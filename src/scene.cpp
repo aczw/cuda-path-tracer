@@ -105,19 +105,23 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
     new_geometry.material_id = mat_name_to_id.at(object["MATERIAL"]);
     new_geometry.tri_begin = -1;
     new_geometry.tri_end = -1;
-    new_geometry.bbox = {
-        .min = glm::vec3(cuda::std::numeric_limits<float>::infinity()),
-        .max = -glm::vec3(cuda::std::numeric_limits<float>::infinity()),
-    };
+    new_geometry.bvh_root_idx = -1;
 
-    const auto& type = object["TYPE"];
-    if (type == "cube") {
+    std::string model_name;
+    bool build_bvh = false;
+
+    if (const auto& type = object["TYPE"]; type == "cube") {
       new_geometry.type = Geometry::Type::Cube;
     } else if (type == "sphere") {
       new_geometry.type = Geometry::Type::Sphere;
     } else {
       new_geometry.type = Geometry::Type::Gltf;
-      if (!parse_gltf(new_geometry, object["PATH"])) return false;
+
+      std::filesystem::path gltf_file = object["PATH"];
+      model_name = gltf_file.filename().string();
+      build_bvh = object["BUILD_BVH"];
+
+      if (!parse_gltf(new_geometry, gltf_file)) return false;
     }
 
     const auto& trans = object["TRANS"];
@@ -140,6 +144,11 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
     new_geometry.inv_transpose = glm::inverseTranspose(new_geometry.transform);
 
     build_bounding_box(new_geometry);
+
+    if (build_bvh) {
+      std::cout << std::format("[BVH] Building BVH for \"{}\"\n", model_name);
+      build_bvh_tree(new_geometry);
+    }
 
     geometry_list.push_back(std::move(new_geometry));
   }
@@ -176,7 +185,7 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
     std::string warning;
     std::string canonical = std::filesystem::canonical(gltf_file).string();
 
-    std::cout << std::format("[GTLF] Loading \"{}\"\n", canonical);
+    std::cout << std::format("[GLTF] Loading \"{}\"\n", canonical);
 
     bool res = true;
     if (extension == ".gltf") {
@@ -365,4 +374,24 @@ void Scene::build_bounding_box(Geometry& geometry) {
     default:
       break;
   }
+}
+
+void Scene::build_bvh_tree(Geometry& geometry) {
+  for (int i = geometry.tri_begin; i < geometry.tri_end; ++i) {
+    bvh_tri_list.push_back(triangle_list[i]);
+  }
+
+  // Add root to the node list
+  bvh_node_list.emplace_back(bvh::Node{
+      .bbox = geometry.bbox,
+      .tri_idx = 0,
+      .tri_count = static_cast<int>(bvh_tri_list.size()),
+      .child_idx = -1,
+  });
+
+  // Index of the root is derived from the node list count. In general, because the actual
+  // node data is stored in a separate global list, we always refer to BVH nodes via their index
+  geometry.bvh_root_idx = bvh_node_list.size() - 1;
+
+  bvh::split(geometry.bvh_root_idx, 0, bvh_node_list, bvh_tri_list);
 }

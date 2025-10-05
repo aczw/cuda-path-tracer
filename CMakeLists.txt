@@ -63,6 +63,9 @@ set(headers
     src/path_segment.hpp
     src/utilities.cuh
     src/ray.hpp
+    src/bvh.hpp
+    src/aabb.hpp
+    src/geometry.hpp
 )
 
 set(sources

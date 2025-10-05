@@ -85,6 +85,7 @@
         {
             "TYPE":"gltf",
             "PATH": "../../../models/stanford_bunny/res3/stanford_bunny.gltf",
+            "BUILD_BVH": true,
             "MATERIAL":"diffuse_white",
             "TRANS":[0.0,4.0,-1.5],
             "ROTAT":[0.0,0.0,0.0],

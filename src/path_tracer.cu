@@ -158,6 +158,8 @@ PathTracer::PathTracer(RenderContext* ctx)
       dev_geometry_list(nullptr),
       dev_material_list(nullptr),
       dev_triangle_list(nullptr),
+      dev_bvh_node_list(nullptr),
+      dev_bvh_tri_list(nullptr),
       dev_normal_list(nullptr),
       dev_position_list(nullptr),
       dev_segments(nullptr),
@@ -189,6 +191,18 @@ void PathTracer::initialize() {
              cudaMemcpyHostToDevice);
   check_cuda_error("PathTracer::initialize: cudaMalloc(dev_triangle_list)");
 
+  const std::vector<bvh::Node>& bvh_nodes = ctx->scene.bvh_node_list;
+  cudaMalloc(&dev_bvh_node_list, bvh_nodes.size() * sizeof(bvh::Node));
+  cudaMemcpy(dev_bvh_node_list, bvh_nodes.data(), bvh_nodes.size() * sizeof(bvh::Node),
+             cudaMemcpyHostToDevice);
+  check_cuda_error("PathTracer::initialize: cudaMalloc(dev_bvh_node_list)");
+
+  const std::vector<Triangle>& bvh_tris = ctx->scene.bvh_tri_list;
+  cudaMalloc(&dev_bvh_tri_list, bvh_tris.size() * sizeof(Triangle));
+  cudaMemcpy(dev_bvh_tri_list, bvh_tris.data(), bvh_tris.size() * sizeof(Triangle),
+             cudaMemcpyHostToDevice);
+  check_cuda_error("PathTracer::initialize: cudaMalloc(dev_bvh_tri_list)");
+
   const std::vector<glm::vec3>& positions = ctx->scene.position_list;
   cudaMalloc(&dev_position_list, positions.size() * sizeof(glm::vec3));
   cudaMemcpy(dev_position_list, positions.data(), positions.size() * sizeof(glm::vec3),
@@ -216,6 +230,8 @@ void PathTracer::free() {
   cudaFree(dev_geometry_list);
   cudaFree(dev_material_list);
   cudaFree(dev_triangle_list);
+  cudaFree(dev_bvh_node_list);
+  cudaFree(dev_bvh_tri_list);
   cudaFree(dev_position_list);
   cudaFree(dev_normal_list);
   cudaFree(dev_segments);
