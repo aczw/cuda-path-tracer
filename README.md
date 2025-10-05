@@ -207,6 +207,18 @@ Therefore, similar to the logic for finding the closest geometry, we keep track 
 
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
 
+### Third party code
+
+- As mentioned above, I use [`tinygltf`](https://github.com/syoyo/tinygltf) for loading the initial glTF model data.
+
+### Custom models
+
+The repo contains a lot of scenes with models taken from elsewhere. Here are their sources:
+
+- `suzanne`: exported from Blender.
+- `stanford_bunny`: converted to glTF by me from the original PLY format. Taken from the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
+- `avocado`: taken from Khronos' [glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/Avocado/README.md).
+
 ## For grading considerations
 
 I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the changes that I've made:
