@@ -1,6 +1,8 @@
 #pragma once
 
+#include "aabb.hpp"
 #include "camera.hpp"
+#include "json.hpp"
 #include "material.hpp"
 #include "utilities.cuh"
 
@@ -13,6 +15,7 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 /// Helper for converting glTF vertex indices of any component type to a vector of integers.
@@ -51,6 +54,9 @@ struct Geometry {
   int tri_begin;
   int tri_end;
 
+  /// World-space bounding box for this geometry.
+  Aabb bbox;
+
   glm::vec3 translation;
   glm::vec3 rotation;
   glm::vec3 scale;
@@ -68,6 +74,8 @@ struct Settings {
 
 class Scene {
  public:
+  using MatNameIdMap = std::unordered_map<std::string, char>;
+
   Opt<Settings> load_from_json(std::filesystem::path scene_file);
 
   Camera camera;
@@ -83,9 +91,11 @@ class Scene {
   std::vector<glm::vec3> normal_list;
 
  private:
-  bool try_load_gltf_into_geometry(Geometry& geometry,
-                                   const tinygltf::Model& model,
-                                   std::function<void(std::string_view)> print_error);
+  MatNameIdMap parse_materials(const nlohmann::json& root);
+  bool parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id);
+
+  /// Attempt to load and parse a glTF model data into the geometry.
+  bool parse_gltf(Geometry& geometry, std::filesystem::path gltf_file);
 
   /// Collect unique positions into global geometry list. We will reference their indices later.
   const float* collect_unique_positions(const tinygltf::Model& model,

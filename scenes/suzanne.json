@@ -22,10 +22,11 @@
             "TYPE":"Diffuse",
             "RGB":[0.35, 0.85, 0.35]
         },
-        "specular_white":
+        "glass":
         {
-            "TYPE":"Diffuse",
-            "RGB":[0.98, 0.98, 0.98]
+            "TYPE":"PerfectSpecular",
+            "RGB":[1.0, 1.0, 1.0],
+            "ETA": 1.55
         }
     },
     "Camera":

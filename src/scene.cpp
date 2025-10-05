@@ -1,6 +1,5 @@
 #include "scene.hpp"
 
-#include "json.hpp"
 #include "utilities.cuh"
 
 #include <glm/gtc/matrix_inverse.hpp>
@@ -11,16 +10,50 @@
 #include <iostream>
 #include <numbers>
 #include <string>
-#include <unordered_map>
 
 Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
   nlohmann::json root = nlohmann::json::parse(stream);
 
-  std::unordered_map<std::string, char> material_name_to_id;
+  // First load materials to build a mapping, then use that to load geometry
+  if (!parse_geometry(root, parse_materials(root))) {
+    return {};
+  }
 
-  // Parse material data
+  // Parse camera data and other settings
+  const auto& camera_data = root["Camera"];
+  const auto& pos = camera_data["EYE"];
+  const auto& lookat = camera_data["LOOKAT"];
+  const auto& up = camera_data["UP"];
+
+  camera.resolution = glm::ivec2(camera_data["RES"][0], camera_data["RES"][1]);
+  camera.position = glm::vec3(pos[0], pos[1], pos[2]);
+  camera.look_at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+  camera.up = glm::vec3(up[0], up[1], up[2]);
+  camera.view = glm::normalize(camera.look_at - camera.position);
+  camera.right = glm::normalize(glm::cross(camera.view, camera.up));
+
+  // Calculate FOV based on resolution
+  float fov_y = camera_data["FOVY"];
+  float y_scaled = std::tan(fov_y * (std::numbers::pi / 180));
+  float x_scaled = (y_scaled * camera.resolution.x) / camera.resolution.y;
+  float fov_x = (std::atan(x_scaled) * 180) / std::numbers::pi;
+  camera.fov = glm::vec2(fov_x, fov_y);
+  camera.pixel_length = glm::vec2(2 * x_scaled / static_cast<float>(camera.resolution.x),
+                                  2 * y_scaled / static_cast<float>(camera.resolution.y));
+
+  return Settings{
+      .max_iterations = camera_data["ITERATIONS"],
+      .max_depth = camera_data["DEPTH"],
+      .original_camera = camera,
+      .scene_name = scene_file.stem().string(),
+  };
+};
+
+Scene::MatNameIdMap Scene::parse_materials(const nlohmann::json& root) {
   const auto& materials_data = root["Materials"];
+  MatNameIdMap mat_name_to_id;
+
   for (const auto& item : materials_data.items()) {
     const auto& name = item.key();
     const auto& object = item.value();
@@ -56,16 +89,20 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
       };
     }
 
-    material_name_to_id[name] = static_cast<char>(material_list.size());
+    mat_name_to_id[name] = static_cast<char>(material_list.size());
     material_list.emplace_back(std::move(new_material));
   }
 
-  // Parse geometry data
+  return mat_name_to_id;
+}
+
+bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id) {
   const auto& objects_data = root["Objects"];
+
   for (const auto& object : objects_data) {
     Geometry new_geometry;
 
-    new_geometry.material_id = material_name_to_id[object["MATERIAL"]];
+    new_geometry.material_id = mat_name_to_id.at(object["MATERIAL"]);
     new_geometry.tri_begin = -1;
     new_geometry.tri_end = -1;
 
@@ -75,59 +112,8 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
     } else if (type == "sphere") {
       new_geometry.type = Geometry::Type::Sphere;
     } else {
-      // Changed so things don't crash
       new_geometry.type = Geometry::Type::Gltf;
-
-      std::filesystem::path gltf_path = object["PATH"];
-      std::string file_name = gltf_path.filename().string();
-
-      auto print_error = [&](std::string_view message) {
-        std::cerr << std::format("[GLTF] Error: {}: {}\n", file_name, message.data());
-      };
-
-      if (!std::filesystem::exists(gltf_path)) {
-        print_error("file does not exist");
-        return {};
-      }
-
-      std::filesystem::path extension = gltf_path.extension();
-      if (extension != ".gltf" && extension != ".glb") {
-        print_error("not a .gltf/.glb file");
-        return {};
-      }
-
-      tinygltf::Model model;
-      std::string error;
-      std::string warning;
-
-      bool result = [&]() -> bool {
-        tinygltf::TinyGLTF loader;
-        std::string canonical = std::filesystem::canonical(gltf_path).string();
-
-        std::cout << std::format("[GTLF] Loading \"{}\"\n", canonical);
-
-        if (extension == ".gltf") {
-          return loader.LoadASCIIFromFile(&model, &error, &warning, canonical);
-        } else {
-          return loader.LoadBinaryFromFile(&model, &error, &warning, canonical);
-        }
-      }();
-
-      if (!warning.empty()) {
-        std::cout << std::format("[GLTF] Warning: {}\n", warning);
-      }
-
-      if (!error.empty()) {
-        std::cout << std::format("[GLTF] Error: {}\n", error);
-      }
-
-      if (!result) {
-        return {};
-      }
-
-      if (!try_load_gltf_into_geometry(new_geometry, model, print_error)) {
-        return {};
-      }
+      if (!parse_gltf(new_geometry, object["PATH"])) return false;
     }
 
     const auto& trans = object["TRANS"];
@@ -137,8 +123,8 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
     new_geometry.rotation = glm::vec3(rotat[0], rotat[1], rotat[2]);
     new_geometry.scale = glm::vec3(scale[0], scale[1], scale[2]);
 
+    // Build transformation matrix
     glm::vec3 rotation_rad = new_geometry.rotation * (std::numbers::pi_v<float> / 180.f);
-
     glm::mat4 transform = glm::translate(glm::mat4(), new_geometry.translation);
     transform = glm::rotate(transform, rotation_rad.x, glm::vec3(1.f, 0.f, 0.f));
     transform = glm::rotate(transform, rotation_rad.y, glm::vec3(0.f, 1.f, 0.f));
@@ -152,43 +138,54 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
     geometry_list.push_back(std::move(new_geometry));
   }
 
-  // Parse camera data and other settings
-  const auto& camera_data = root["Camera"];
-  camera.resolution = glm::ivec2(camera_data["RES"][0], camera_data["RES"][1]);
+  return true;
+}
 
-  const auto& pos = camera_data["EYE"];
-  camera.position = glm::vec3(pos[0], pos[1], pos[2]);
+bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
+  std::string file_name = gltf_file.filename().string();
 
-  const auto& lookat = camera_data["LOOKAT"];
-  camera.look_at = glm::vec3(lookat[0], lookat[1], lookat[2]);
-
-  const auto& up = camera_data["UP"];
-  camera.up = glm::vec3(up[0], up[1], up[2]);
-
-  camera.view = glm::normalize(camera.look_at - camera.position);
-  camera.right = glm::normalize(glm::cross(camera.view, camera.up));
-
-  // Calculate FOV based on resolution
-  float fov_y = camera_data["FOVY"];
-  float y_scaled = std::tan(fov_y * (std::numbers::pi / 180));
-  float x_scaled = (y_scaled * camera.resolution.x) / camera.resolution.y;
-  float fov_x = (std::atan(x_scaled) * 180) / std::numbers::pi;
-  camera.fov = glm::vec2(fov_x, fov_y);
-  camera.pixel_length = glm::vec2(2 * x_scaled / static_cast<float>(camera.resolution.x),
-                                  2 * y_scaled / static_cast<float>(camera.resolution.y));
-
-  return Settings{
-      .max_iterations = camera_data["ITERATIONS"],
-      .max_depth = camera_data["DEPTH"],
-      .original_camera = camera,
-      .scene_name = scene_file.stem().string(),
+  auto print_error = [&](std::string_view message) {
+    std::cerr << std::format("[GLTF] Error: {}: {}\n", file_name, message.data());
   };
-};
 
-bool Scene::try_load_gltf_into_geometry(Geometry& geometry,
-                                        const tinygltf::Model& model,
-                                        std::function<void(std::string_view)> print_error) {
+  if (!std::filesystem::exists(gltf_file)) {
+    print_error("file does not exist");
+    return false;
+  }
+
+  std::filesystem::path extension = gltf_file.extension();
+
+  if (extension != ".gltf" && extension != ".glb") {
+    print_error("not a .gltf/.glb file");
+    return false;
+  }
+
   using namespace tinygltf;
+
+  Model model;
+
+  bool result = [&]() -> bool {
+    TinyGLTF loader;
+    std::string error;
+    std::string warning;
+    std::string canonical = std::filesystem::canonical(gltf_file).string();
+
+    std::cout << std::format("[GTLF] Loading \"{}\"\n", canonical);
+
+    bool res = true;
+    if (extension == ".gltf") {
+      res = loader.LoadASCIIFromFile(&model, &error, &warning, canonical);
+    } else {
+      res = loader.LoadBinaryFromFile(&model, &error, &warning, canonical);
+    }
+
+    if (!warning.empty()) std::cout << std::format("[GLTF] Warning: {}\n", warning);
+    if (!error.empty()) std::cout << std::format("[GLTF] Error: {}\n", error);
+
+    return res;
+  }();
+
+  if (!result) return false;
 
   const std::vector<Mesh>& meshes = model.meshes;
 

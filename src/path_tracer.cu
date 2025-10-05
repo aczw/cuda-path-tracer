@@ -263,8 +263,6 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     // - russian roulette
     // - too many bounces within glass
     if (gui_data->discard_light_isect_paths) {
-      // TODO(aczw): overhead of partitioning zip iterator vs. just path segments? Intersections
-      // get reset at the end of this while loop anyway.
       end = thrust::partition(begin, end, op::is_not_light_isect{});
       num_paths = thrust::distance(begin, end);
     }
