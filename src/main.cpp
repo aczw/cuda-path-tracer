@@ -163,7 +163,7 @@ void render_gui(GuiData* gui_data) {
     if (ImGui::BeginTabBar("Configuration")) {
       if (ImGui::BeginTabItem("Performance")) {
         ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
-        ImGui::Checkbox("Perform AABB intersection culling", &gui_data->bbox_isect_culling);
+        ImGui::Checkbox("AABB intersection culling", &gui_data->bbox_isect_culling);
 
         ImGui::Spacing();
         ImGui::Spacing();
