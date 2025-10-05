@@ -2,18 +2,7 @@
 
 #include "aabb.hpp"
 
-#include <cuda/std/array>
-
 #include <glm/glm.hpp>
-
-struct Vertex {
-  int pos_idx;
-  int nor_idx;
-};
-
-/// A triangle is simply a trio of vertices containing the indices
-/// pointing at various vertex attributes.
-using Triangle = cuda::std::array<Vertex, 3>;
 
 struct Geometry {
   enum class Type { Sphere, Cube, Gltf } type;

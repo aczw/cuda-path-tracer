@@ -173,6 +173,8 @@ __global__ void find_intersections(int num_paths,
                                    Triangle* triangle_list,
                                    glm::vec3* position_list,
                                    glm::vec3* normal_list,
+                                   bvh::Node* bvh_node_list,
+                                   Triangle* bvh_tri_list,
                                    PathSegment* segments,
                                    Intersection* intersections,
                                    bool bbox_isect_culling) {

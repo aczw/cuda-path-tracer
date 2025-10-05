@@ -1,9 +1,11 @@
 #pragma once
 
+#include "bvh.hpp"
+#include "geometry.hpp"
 #include "material.hpp"
+#include "mesh.hpp"
 #include "path_segment.hpp"
 #include "ray.hpp"
-#include "scene.hpp"
 
 #include <cuda_runtime.h>
 
@@ -46,6 +48,8 @@ __global__ void find_intersections(int num_paths,
                                    Triangle* triangle_list,
                                    glm::vec3* position_list,
                                    glm::vec3* normal_list,
+                                   bvh::Node* bvh_node_list,
+                                   Triangle* bvh_tri_list,
                                    PathSegment* segments,
                                    Intersection* intersections,
                                    bool bbox_isect_culling);

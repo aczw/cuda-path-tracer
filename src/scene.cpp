@@ -10,6 +10,7 @@
 #include <iostream>
 #include <numbers>
 #include <string>
+#include <string_view>
 
 Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
@@ -359,13 +360,7 @@ void Scene::build_bounding_box(Geometry& geometry) {
 
     case Geometry::Type::Gltf: {
       for (int tri_idx = geometry.tri_begin; tri_idx < geometry.tri_end; ++tri_idx) {
-        const Triangle& triangle = triangle_list[tri_idx];
-
-        for (int vert = 0; vert < 3; ++vert) {
-          glm::vec3 pos = position_list[triangle[vert].pos_idx];
-          glm::vec3 world_pos = glm::vec3(geometry.transform * glm::vec4(pos, 1.f));
-          bbox.include(world_pos);
-        }
+        bbox.include(triangle_list[tri_idx], position_list, geometry.transform);
       }
 
       break;
@@ -393,5 +388,6 @@ void Scene::build_bvh_tree(Geometry& geometry) {
   // node data is stored in a separate global list, we always refer to BVH nodes via their index
   geometry.bvh_root_idx = bvh_node_list.size() - 1;
 
-  bvh::split(geometry.bvh_root_idx, 0, bvh_node_list, bvh_tri_list);
+  bvh::split(geometry.bvh_root_idx, 0, bvh_node_list, bvh_tri_list, position_list,
+             geometry.transform);
 }

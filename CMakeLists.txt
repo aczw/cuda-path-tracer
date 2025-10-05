@@ -66,6 +66,7 @@ set(headers
     src/bvh.hpp
     src/aabb.hpp
     src/geometry.hpp
+    src/mesh.hpp
 )
 
 set(sources

@@ -2,6 +2,7 @@
 
 #include "bvh.hpp"
 #include "camera.hpp"
+#include "geometry.hpp"
 #include "json.hpp"
 #include "material.hpp"
 #include "utilities.cuh"
@@ -10,9 +11,7 @@
 #include <tiny_gltf.h>
 
 #include <filesystem>
-#include <functional>
 #include <string>
-#include <string_view>
 #include <unordered_map>
 #include <vector>
 
