@@ -183,6 +183,55 @@ __device__ Intersection test_gltf_isect(const Geometry& gltf,
   return isect;
 }
 
+__device__ Intersection test_bvh_isect(int node_idx,
+                                       Ray world_ray,
+                                       const Geometry& geometry,
+                                       const bvh::Node* node_list,
+                                       const Triangle* triangle_list,
+                                       const glm::vec3* position_list,
+                                       const glm::vec3* normal_list) {
+  Intersection isect;
+  isect.t = -1.f;
+  float t_min = cuda::std::numeric_limits<float>::max();
+
+  int stack[10];
+  int idx = 0;
+  stack[idx++] = node_idx;
+
+  Ray obj_ray = {
+      .origin = glm::vec3(geometry.inv_transform * glm::vec4(world_ray.origin, 1.f)),
+      .direction = glm::vec3(geometry.inv_transform * glm::vec4(world_ray.direction, 0.f)),
+  };
+
+  while (idx > 0) {
+    const bvh::Node& node = node_list[stack[--idx]];
+
+    if (!node.bbox.intersect(world_ray)) continue;
+
+    // Hit leaf
+    if (node.child_idx == -1) {
+      Intersection curr = test_tri_list_isect(node.tri_idx, node.tri_idx + node.tri_count, obj_ray,
+                                              triangle_list, position_list, normal_list);
+
+      if (curr.t > 0.f && curr.t < t_min) {
+        isect = std::move(curr);
+        t_min = isect.t;
+      }
+    } else {
+      stack[idx++] = node.child_idx + 1;
+      stack[idx++] = node.child_idx;
+    }
+  }
+
+  if (isect.t > 0.f) {
+    isect.normal = glm::normalize(glm::vec3(geometry.inv_transpose * glm::vec4(isect.normal, 0.f)));
+    isect.point = glm::vec3(geometry.transform * glm::vec4(isect.point, 1.f));
+    isect.material_id = geometry.material_id;
+  }
+
+  return isect;
+}
+
 namespace kernel {
 
 __global__ void find_intersections(int num_paths,
@@ -233,10 +282,17 @@ __global__ void find_intersections(int num_paths,
         curr_isect = test_sphere_isect(geometry, segment_ray);
         break;
 
-      case Geometry::Type::Gltf:
-        curr_isect =
-            test_gltf_isect(geometry, segment_ray, triangle_list, position_list, normal_list);
+      case Geometry::Type::Gltf: {
+        if (geometry.bvh_root_idx >= 0) {
+          curr_isect = test_bvh_isect(geometry.bvh_root_idx, segment_ray, geometry, bvh_node_list,
+                                      bvh_tri_list, position_list, normal_list);
+        } else {
+          curr_isect =
+              test_gltf_isect(geometry, segment_ray, triangle_list, position_list, normal_list);
+        }
+
         break;
+      }
 
       default:
         // Unreachable
