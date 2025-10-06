@@ -75,14 +75,6 @@ class Scene {
   /// Attempt to load and parse a glTF model data into the geometry.
   bool parse_gltf(Geometry& geometry, std::filesystem::path gltf_file);
 
-  /// Collect unique positions into global geometry list. We will reference their indices later.
-  const float* collect_unique_positions(const tinygltf::Model& model,
-                                        const tinygltf::Accessor& pos_accessor);
-
-  // Collect unique normals into global geometry list. We will reference their indices later.
-  const float* collect_unique_normals(const tinygltf::Model& model,
-                                      const tinygltf::Accessor& nor_accessor);
-
   /// Builds the bounding box for the corresponding geometry, and stores it.
   void build_bounding_box(Geometry& geometry);
 

@@ -200,6 +200,29 @@ After loading the raw data, I parse the position and normal buffers and create t
 - Each triangle stores three vertices. A `Vertex` struct does not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
 - While parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
 
+##### Naive implementation
+
+While on paper this should provide a speed-up, in practice my first implementation was still catastrophically slow. It went something like this:
+
+The main issue is that checking whether a position/normal took $O(n)$ time because we have to iterate through the whole list, for every position/normal we want to add. For something like the Stanford dragon, which has over 435,000 unique position data, this made loading the model impossible.
+
+To solve this, we need to dramatically reduce lookup times.
+
+##### Hashing implementation
+
+Instead of using a vector, we can use a map instead, and map each unique data point to its index. At the end, we perform one single $O(n)$ pass to transfer each map entry over to its vector index:
+
+```cpp
+// Same for positions and normals
+for (const auto& [data, idx] : unique_data) {
+  data_list[idx] = data;
+}
+```
+
+By using a map, checking whether a data point is unique is now on average $O(1)$ instead of linear time. We can clearly see the impact in these graphs:
+
+- TODO: graphs here lol
+
 #### Ray-triangle intersection
 
 My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.

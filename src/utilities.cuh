@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <format>
+#include <functional>
 #include <iostream>
 #include <source_location>
 #include <string>
@@ -71,3 +72,24 @@ __host__ __device__ inline float cos_theta(glm::vec3 normal, glm::vec3 omega) {
 __host__ __device__ inline float abs_cos_theta(glm::vec3 normal, glm::vec3 omega) {
   return glm::abs(cos_theta(normal, omega));
 }
+
+/// Adapted from https://github.com/g-truc/glm/blob/master/glm/gtx/hash.inl.
+inline void hash_combine(std::size_t& seed, std::size_t hash) {
+  hash += 0x9e3779b9 + (seed << 6) + (seed << 2);
+  seed ^= hash;
+}
+
+/// Necessary in order to use `glm::vec3` in sets and maps.
+template <>
+struct std::hash<glm::vec3> {
+  size_t operator()(const glm::vec3& v) const noexcept {
+    size_t seed = 0;
+    hash<float> hasher;
+
+    hash_combine(seed, hasher(v.x));
+    hash_combine(seed, hasher(v.y));
+    hash_combine(seed, hasher(v.z));
+
+    return seed;
+  }
+};

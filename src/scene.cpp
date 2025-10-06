@@ -12,7 +12,36 @@
 #include <numbers>
 #include <string>
 #include <string_view>
-#include <unordered_set>
+
+namespace {
+
+/// Collect unique `glm::vec3`s into a map. We will reference their indices later.
+///
+/// @return Pointer to beginning of the raw data.
+const float* collect_unique_vec3(const tinygltf::Model& model,
+                                 const tinygltf::Accessor& accessor,
+                                 std::unordered_map<glm::vec3, int>& unique_data) {
+  using namespace tinygltf;
+
+  const BufferView& bv = model.bufferViews[accessor.bufferView];
+  const Buffer& buf = model.buffers[bv.buffer];
+  auto raw_data = reinterpret_cast<const float*>(&buf.data[bv.byteOffset + accessor.byteOffset]);
+
+  int index = 0;
+  for (int offset = 0; offset < accessor.count; ++offset) {
+    glm::vec3 data(raw_data[offset * 3], raw_data[offset * 3 + 1], raw_data[offset * 3 + 2]);
+
+    // If the map doesn't already contain this value, we add it and increment the index
+    if (!unique_data.contains(data)) {
+      unique_data[std::move(data)] = index;
+      index++;
+    }
+  }
+
+  return raw_data;
+}
+
+}  // namespace
 
 Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
@@ -173,7 +202,7 @@ Opt<bool> Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& 
 
       std::cout << std::format("[BVH] Num nodes: {} / Num leaves: {}\n", bvh_node_list.size(),
                                leaf_count);
-      std::cout << std::format("[BVH] Leaf tris: MIN {} / MAX {} / AVG {}\n", min, max,
+      std::cout << std::format("[BVH] Leaf triangles: MIN {} / MAX {} / AVG {}\n", min, max,
                                sum / leaf_count);
     }
 
@@ -252,6 +281,11 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
 
   auto time_start = std::chrono::high_resolution_clock::now();
 
+  // To prevent O(n) lookups to find the index of an element, we instead map a position/normal to
+  // its index. The benefits are twofold: we never store the same value twice.
+  std::unordered_map<glm::vec3, int> unique_positions;
+  std::unordered_map<glm::vec3, int> unique_normals;
+
   for (const Primitive& primitive : first_mesh.primitives) {
     if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
       print_error("mesh primitive is not a triangle");
@@ -285,14 +319,14 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
       print_error("position component type is not a float");
       return false;
     }
-    const float* raw_pos = collect_unique_positions(model, pos_accessor);
+    const float* raw_pos = collect_unique_vec3(model, pos_accessor, unique_positions);
 
     const Accessor& nor_accessor = model.accessors[primitive.attributes.at("NORMAL")];
     if (nor_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
       print_error("normal component type is not a float");
       return false;
     }
-    const float* raw_nor = collect_unique_normals(model, nor_accessor);
+    const float* raw_nor = collect_unique_vec3(model, nor_accessor, unique_normals);
 
     // Iterate over each triangle
     for (int i = 0; i < idx_accessor.count; i += 3) {
@@ -305,28 +339,27 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
         // Find the position data (which we added in the previous step) in the list
         // and use its index for this vertex
         glm::vec3 pos(raw_pos[offset], raw_pos[offset + 1], raw_pos[offset + 2]);
-        if (auto it = std::ranges::find(position_list, pos); it != position_list.end()) {
-          auto new_idx = std::ranges::distance(position_list.begin(), it);
-          triangle[j - i].pos_idx = new_idx;
-        } else {
-          print_error("index referencing previously undiscovered vertex position");
-          return false;
-        }
+        triangle[j - i].pos_idx = unique_positions.at(pos);
 
         // Find the normal data (which we added in the previous step) in the list
         // and use its index for this vertex
         glm::vec3 nor(raw_nor[offset], raw_nor[offset + 1], raw_nor[offset + 2]);
-        if (auto it = std::ranges::find(normal_list, nor); it != normal_list.end()) {
-          auto new_idx = std::ranges::distance(normal_list.begin(), it);
-          triangle[j - i].nor_idx = new_idx;
-        } else {
-          print_error("index referencing previously undiscovered vertex normal");
-          return false;
-        }
+        triangle[j - i].nor_idx = unique_normals.at(nor);
       }
 
       triangle_list.push_back(std::move(triangle));
     }
+  }
+
+  // Transfer map data to actual vectors
+  position_list.resize(unique_positions.size());
+  normal_list.resize(unique_normals.size());
+
+  for (const auto& [pos, idx] : unique_positions) {
+    position_list[idx] = pos;
+  }
+  for (const auto& [nor, idx] : unique_normals) {
+    normal_list[idx] = nor;
   }
 
   auto time_end = std::chrono::high_resolution_clock::now();
@@ -341,44 +374,6 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
   geometry.tri_end = tri_end;
 
   return true;
-}
-
-const float* Scene::collect_unique_positions(const tinygltf::Model& model,
-                                             const tinygltf::Accessor& pos_accessor) {
-  using namespace tinygltf;
-
-  const BufferView& bv = model.bufferViews[pos_accessor.bufferView];
-  const Buffer& buf = model.buffers[bv.buffer];
-  auto pos = reinterpret_cast<const float*>(&buf.data[bv.byteOffset + pos_accessor.byteOffset]);
-
-  for (int offset = 0; offset < pos_accessor.count; ++offset) {
-    glm::vec3 position(pos[offset * 3], pos[offset * 3 + 1], pos[offset * 3 + 2]);
-
-    if (auto it = std::ranges::find(position_list, position); it == position_list.end()) {
-      position_list.push_back(std::move(position));
-    }
-  }
-
-  return pos;
-}
-
-const float* Scene::collect_unique_normals(const tinygltf::Model& model,
-                                           const tinygltf::Accessor& nor_accessor) {
-  using namespace tinygltf;
-
-  const BufferView& bv = model.bufferViews[nor_accessor.bufferView];
-  const Buffer& buf = model.buffers[bv.buffer];
-  auto nor = reinterpret_cast<const float*>(&buf.data[bv.byteOffset + nor_accessor.byteOffset]);
-
-  for (int offset = 0; offset < nor_accessor.count; ++offset) {
-    glm::vec3 normal(nor[offset * 3], nor[offset * 3 + 1], nor[offset * 3 + 2]);
-
-    if (auto it = std::ranges::find(normal_list, normal); it == normal_list.end()) {
-      normal_list.push_back(std::move(normal));
-    }
-  }
-
-  return nor;
 }
 
 void Scene::build_bounding_box(Geometry& geometry) {
