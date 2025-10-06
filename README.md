@@ -264,7 +264,7 @@ Of course, having never built one before I needed to do some research. My implem
 
 The repo contains a lot of scenes with models taken from elsewhere. Here are their sources:
 
-- `suzanne` and `blender_cube`: exported from Blender.
+- `suzanne`, `blender_cube`, `plane`: exported from Blender.
 - `utah_teapot`: I tried finding the original source model. The closest I could find is from [David E. Johnson's University of Utah page](https://users.cs.utah.edu/~dejohnso/models/models.html). I converted the "Boolean Combined Teapot" .stl file to glTF.
 
 #### Stanford 3D Scanning Repository
