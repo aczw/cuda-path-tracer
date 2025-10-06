@@ -255,9 +255,22 @@ Micro-optimization: pre-computing the inverse of the ray direction before using 
 
 The repo contains a lot of scenes with models taken from elsewhere. Here are their sources:
 
-- `suzanne`: exported from Blender.
-- `stanford_bunny`: converted to glTF by me from the original PLY format. Taken from the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
-- `avocado`: taken from Khronos' [glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/Avocado/README.md).
+- `suzanne` and `blender_cube`: exported from Blender.
+- `utah_teapot`: I tried finding the original source model. The closest I could find is from [David E. Johnson's University of Utah page](https://users.cs.utah.edu/~dejohnso/models/models.html). I converted the "Boolean Combined Teapot" .stl file to glTF.
+
+#### Stanford 3D Scanning Repository
+
+Repository can be found at [graphics.stanford.edu/data/3Dscanrep](https://graphics.stanford.edu/data/3Dscanrep/).
+
+- `stanford_bunny`: converted to glTF by me from the original PLY format.
+- `stanford_dragon`: converted to glTF by me from the original PLY format.
+
+#### Khronos glTF Sample Assets
+
+The following models are taken from the repository at [github.com/KhronosGroup/glTF-Sample-Assets](https://github.com/KhronosGroup/glTF-Sample-Assets).
+
+- `avocado`
+- `damaged_helmet`
 
 ## Future work
 
