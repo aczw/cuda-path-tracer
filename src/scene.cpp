@@ -184,6 +184,7 @@ Opt<bool> Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& 
 
     if (build_bvh_for_curr) {
       std::cout << std::format("[BVH] Building BVH for \"{}\"\n", model_name);
+
       build_bvh_tree(new_geometry);
 
       int leaf_count = 0;
@@ -266,19 +267,11 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
     return false;
   }
 
-  const Mesh& first_mesh = meshes[0];
-
-  if (first_mesh.primitives.empty()) {
-    print_error("no primitives in the mesh to render");
-    return false;
-  }
-
   // Since there is one global list of triangle data, this geometry "slices" into it
   // with a begin and end index, similar to an iterator
   int tri_begin = triangle_list.size();
 
   std::cout << "[GLTF] Loaded raw data, building triangles... (this might take a while)\n";
-
   auto time_start = std::chrono::high_resolution_clock::now();
 
   // To prevent O(n) lookups to find the index of an element, we instead map a position/normal to
@@ -286,68 +279,72 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
   std::unordered_map<glm::vec3, int> unique_positions;
   std::unordered_map<glm::vec3, int> unique_normals;
 
-  for (const Primitive& primitive : first_mesh.primitives) {
-    if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
-      print_error("mesh primitive is not a triangle");
-      return false;
-    }
+  for (const Mesh& mesh : meshes) {
+    if (mesh.primitives.empty()) continue;
 
-    if (primitive.indices == -1) {
-      print_error("mesh primitive does not specify vertex indices");
-      return false;
-    }
-
-    const Accessor& idx_accessor = model.accessors[primitive.indices];
-    std::vector<int> indices;
-
-    switch (idx_accessor.componentType) {
-      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
-        indices = reinterpret_indices_as<uint16_t>(model, idx_accessor);
-        break;
-
-      case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
-        indices = reinterpret_indices_as<uint32_t>(model, idx_accessor);
-        break;
-
-      default:
-        print_error("unknown vertex index component type");
+    for (const Primitive& primitive : mesh.primitives) {
+      if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
+        print_error("mesh primitive is not a triangle");
         return false;
-    };
-
-    const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
-    if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
-      print_error("position component type is not a float");
-      return false;
-    }
-    const float* raw_pos = collect_unique_vec3(model, pos_accessor, unique_positions);
-
-    const Accessor& nor_accessor = model.accessors[primitive.attributes.at("NORMAL")];
-    if (nor_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
-      print_error("normal component type is not a float");
-      return false;
-    }
-    const float* raw_nor = collect_unique_vec3(model, nor_accessor, unique_normals);
-
-    // Iterate over each triangle
-    for (int i = 0; i < idx_accessor.count; i += 3) {
-      Triangle triangle;
-
-      // Iterate over each vertex in the triangle, and map to new index
-      for (int j = i; j < i + 3; ++j) {
-        int offset = indices[j] * 3;
-
-        // Find the position data (which we added in the previous step) in the list
-        // and use its index for this vertex
-        glm::vec3 pos(raw_pos[offset], raw_pos[offset + 1], raw_pos[offset + 2]);
-        triangle[j - i].pos_idx = unique_positions.at(pos);
-
-        // Find the normal data (which we added in the previous step) in the list
-        // and use its index for this vertex
-        glm::vec3 nor(raw_nor[offset], raw_nor[offset + 1], raw_nor[offset + 2]);
-        triangle[j - i].nor_idx = unique_normals.at(nor);
       }
 
-      triangle_list.push_back(std::move(triangle));
+      if (primitive.indices == -1) {
+        print_error("mesh primitive does not specify vertex indices");
+        return false;
+      }
+
+      const Accessor& idx_accessor = model.accessors[primitive.indices];
+      std::vector<int> indices;
+
+      switch (idx_accessor.componentType) {
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+          indices = reinterpret_indices_as<uint16_t>(model, idx_accessor);
+          break;
+
+        case TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT:
+          indices = reinterpret_indices_as<uint32_t>(model, idx_accessor);
+          break;
+
+        default:
+          print_error("unknown vertex index component type");
+          return false;
+      };
+
+      const Accessor& pos_accessor = model.accessors[primitive.attributes.at("POSITION")];
+      if (pos_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+        print_error("position component type is not a float");
+        return false;
+      }
+      const float* raw_pos = collect_unique_vec3(model, pos_accessor, unique_positions);
+
+      const Accessor& nor_accessor = model.accessors[primitive.attributes.at("NORMAL")];
+      if (nor_accessor.componentType != TINYGLTF_COMPONENT_TYPE_FLOAT) {
+        print_error("normal component type is not a float");
+        return false;
+      }
+      const float* raw_nor = collect_unique_vec3(model, nor_accessor, unique_normals);
+
+      // Iterate over each triangle
+      for (int i = 0; i < idx_accessor.count; i += 3) {
+        Triangle triangle;
+
+        // Iterate over each vertex in the triangle, and map to new index
+        for (int j = i; j < i + 3; ++j) {
+          int offset = indices[j] * 3;
+
+          // Find the position data (which we added in the previous step) in the list
+          // and use its index for this vertex
+          glm::vec3 pos(raw_pos[offset], raw_pos[offset + 1], raw_pos[offset + 2]);
+          triangle[j - i].pos_idx = unique_positions.at(pos);
+
+          // Find the normal data (which we added in the previous step) in the list
+          // and use its index for this vertex
+          glm::vec3 nor(raw_nor[offset], raw_nor[offset + 1], raw_nor[offset + 2]);
+          triangle[j - i].nor_idx = unique_normals.at(nor);
+        }
+
+        triangle_list.push_back(std::move(triangle));
+      }
     }
   }
 
