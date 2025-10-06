@@ -193,6 +193,15 @@ At first everything was gravy. But then I ran into other bugs. And, when the two
 
 I added `tiny_gltf` to the project. It does not consider scene hierarchy or transformations, and only loads the first mesh in the glTF file.
 
+#### Creating a mesh
+
+After loading the raw data, I parse the position and normal buffers and create triangles out of them. There are two optimizations I make here:
+
+- Each triangle stores three vertices. A `Vertex` struct does not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
+- While parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
+
+#### Ray-triangle intersection
+
 My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
 
 |**Not taking the minimum `t` value**|**Taking the minimum `t` value**|
@@ -202,6 +211,14 @@ My first implementation was simple and naive. For each triangle in the mesh, we 
 On the left we can see Suzanne's eyes are protruding out of the face when they should be shadowed by the eyebrows, as seen on the right.
 
 Therefore, similar to the logic for finding the closest geometry, we keep track of the smallest `t` value found so far, and update the intersection data only if we've found a closer one. This means that we cannot return early because the closest triangle may be the last one in the triangle list.
+
+### Intersection culling
+
+#### Axis-aligned bounding boxes (AABB)
+
+#### Bounding volume hierarchy (BVH)
+
+Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
 
 ## Credits
 
@@ -218,14 +235,6 @@ The repo contains a lot of scenes with models taken from elsewhere. Here are the
 - `suzanne`: exported from Blender.
 - `stanford_bunny`: converted to glTF by me from the original PLY format. Taken from the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
 - `avocado`: taken from Khronos' [glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/Avocado/README.md).
-
-### Intersection culling
-
-#### Axis-aligned bounding boxes (AABB)
-
-#### Bounding volume hierarchy (BVH)
-
-Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
 
 ## Future work
 

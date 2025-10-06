@@ -22,7 +22,7 @@
             "TYPE":"Diffuse",
             "RGB":[0.35, 0.85, 0.35]
         },
-        "perfect_specular_white":
+        "glass":
         {
             "TYPE":"PerfectSpecular",
             "RGB":[1.0, 1.0, 1.0],
@@ -85,7 +85,7 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"perfect_specular_white",
+            "MATERIAL":"glass",
             "TRANS":[0.0,4.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[7.0,7.0,7.0]

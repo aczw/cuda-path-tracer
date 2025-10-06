@@ -125,6 +125,9 @@ Opt<bool> Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& 
       build_bvh_for_curr = object["BUILD_BVH"];
 
       if (!parse_gltf(new_geometry, gltf_file)) return {};
+
+      std::cout << std::format("[GLTF] Num positions: {} / Num normals: {}\n", position_list.size(),
+                               normal_list.size());
     }
 
     const auto& trans = object["TRANS"];
@@ -242,6 +245,8 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
   // Since there is one global list of triangle data, this geometry "slices" into it
   // with a begin and end index, similar to an iterator
   int tri_begin = triangle_list.size();
+
+  std::cout << "[GLTF] Loaded raw data, building triangles... (this might take a while)\n";
 
   for (const Primitive& primitive : first_mesh.primitives) {
     if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
