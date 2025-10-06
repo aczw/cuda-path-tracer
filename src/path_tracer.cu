@@ -257,7 +257,7 @@ void PathTracer::run_iteration(uchar4* pbo, int curr_iter) {
     kernel::find_intersections<<<divide_ceil(num_paths, BLOCK_SIZE_128), BLOCK_SIZE_128>>>(
         num_paths, dev_geometry_list, geometry_list_size, dev_material_list, dev_triangle_list,
         dev_position_list, dev_normal_list, dev_bvh_node_list, dev_bvh_tri_list, dev_segments,
-        dev_intersections, gui_data->bbox_isect_culling);
+        dev_intersections, gui_data->bbox_isect_culling, gui_data->bvh_isect_culling);
     check_cuda_error("kernel::find_intersections");
     curr_depth++;
 

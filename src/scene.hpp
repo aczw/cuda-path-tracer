@@ -40,6 +40,7 @@ struct Settings {
   int max_depth;
   Camera original_camera;
   std::string scene_name;
+  bool built_bvh;
 };
 
 class Scene {
@@ -69,7 +70,7 @@ class Scene {
 
  private:
   MatNameIdMap parse_materials(const nlohmann::json& root);
-  bool parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id);
+  Opt<bool> parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id);
 
   /// Attempt to load and parse a glTF model data into the geometry.
   bool parse_gltf(Geometry& geometry, std::filesystem::path gltf_file);

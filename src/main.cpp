@@ -152,6 +152,7 @@ void render_gui(GuiData* gui_data) {
     ImGui::Text("Scene: \"%s\"", settings->scene_name.c_str());
     ImGui::Text("Max iterations: %d", settings->max_iterations);
     ImGui::Text("Max depth: %d", settings->max_depth);
+    ImGui::Text("Built BVH: %s", settings->built_bvh ? "Yes" : "No");
 
     float fps = ImGui::GetIO().Framerate;
     ImGui::Text("FPS: %.2f (%.2f ms)", fps, 1000.0f / fps);
@@ -164,6 +165,10 @@ void render_gui(GuiData* gui_data) {
       if (ImGui::BeginTabItem("Performance")) {
         ImGui::Checkbox("Sort paths by material", &gui_data->sort_paths_by_material);
         ImGui::Checkbox("AABB intersection culling", &gui_data->bbox_isect_culling);
+
+        if (settings->built_bvh) {
+          ImGui::Checkbox("BVH intersection culling", &gui_data->bvh_isect_culling);
+        }
 
         ImGui::Spacing();
         ImGui::Spacing();

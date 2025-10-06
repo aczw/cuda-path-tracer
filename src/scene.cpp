@@ -17,9 +17,9 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   nlohmann::json root = nlohmann::json::parse(stream);
 
   // First load materials to build a mapping, then use that to load geometry
-  if (!parse_geometry(root, parse_materials(root))) {
-    return {};
-  }
+  Opt<bool> built_bvh_opt = parse_geometry(root, parse_materials(root));
+
+  if (!built_bvh_opt.has_value()) return {};
 
   // Parse camera data and other settings
   const auto& camera_data = root["Camera"];
@@ -48,6 +48,7 @@ Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
       .max_depth = camera_data["DEPTH"],
       .original_camera = camera,
       .scene_name = scene_file.stem().string(),
+      .built_bvh = built_bvh_opt.value(),
   };
 };
 
@@ -97,8 +98,9 @@ Scene::MatNameIdMap Scene::parse_materials(const nlohmann::json& root) {
   return mat_name_to_id;
 }
 
-bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id) {
+Opt<bool> Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_name_to_id) {
   const auto& objects_data = root["Objects"];
+  bool built_bvh = false;
 
   for (const auto& object : objects_data) {
     Geometry new_geometry;
@@ -109,7 +111,7 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
     new_geometry.bvh_root_idx = -1;
 
     std::string model_name;
-    bool build_bvh = false;
+    bool build_bvh_for_curr = false;
 
     if (const auto& type = object["TYPE"]; type == "cube") {
       new_geometry.type = Geometry::Type::Cube;
@@ -120,9 +122,9 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
 
       std::filesystem::path gltf_file = object["PATH"];
       model_name = gltf_file.filename().string();
-      build_bvh = object["BUILD_BVH"];
+      build_bvh_for_curr = object["BUILD_BVH"];
 
-      if (!parse_gltf(new_geometry, gltf_file)) return false;
+      if (!parse_gltf(new_geometry, gltf_file)) return {};
     }
 
     const auto& trans = object["TRANS"];
@@ -146,15 +148,16 @@ bool Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& mat_n
 
     build_bounding_box(new_geometry);
 
-    if (build_bvh) {
+    if (build_bvh_for_curr) {
       std::cout << std::format("[BVH] Building BVH for \"{}\"\n", model_name);
       build_bvh_tree(new_geometry);
     }
 
+    built_bvh = built_bvh || build_bvh_for_curr;
     geometry_list.push_back(std::move(new_geometry));
   }
 
-  return true;
+  return built_bvh;
 }
 
 bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {

@@ -245,7 +245,8 @@ __global__ void find_intersections(int num_paths,
                                    Triangle* bvh_tri_list,
                                    PathSegment* segments,
                                    Intersection* intersections,
-                                   bool bbox_isect_culling) {
+                                   bool bbox_isect_culling,
+                                   bool bvh_isect_culling) {
   int segment_index = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (segment_index >= num_paths) {
@@ -283,7 +284,7 @@ __global__ void find_intersections(int num_paths,
         break;
 
       case Geometry::Type::Gltf: {
-        if (geometry.bvh_root_idx >= 0) {
+        if (bvh_isect_culling && geometry.bvh_root_idx >= 0) {
           curr_isect = test_bvh_isect(geometry.bvh_root_idx, segment_ray, geometry, bvh_node_list,
                                       bvh_tri_list, position_list, normal_list);
         } else {

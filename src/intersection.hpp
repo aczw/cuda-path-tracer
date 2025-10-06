@@ -73,6 +73,7 @@ __global__ void find_intersections(int num_paths,
                                    Triangle* bvh_tri_list,
                                    PathSegment* segments,
                                    Intersection* intersections,
-                                   bool bbox_isect_culling);
+                                   bool bbox_isect_culling,
+                                   bool bvh_isect_culling);
 
 }  // namespace kernel
