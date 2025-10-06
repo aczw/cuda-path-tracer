@@ -32,6 +32,9 @@ inline void split(int parent_node_idx,
                   const glm::mat4 transform) {
   if (depth == MAX_DEPTH) return;
 
+  // If this node has no children to split, return early as well
+  if (node_list[parent_node_idx].tri_count == 0) return;
+
   // Find axis to split along. Pick the axis by choosing the one with the biggest length
   glm::vec3 size = node_list[parent_node_idx].bbox.get_size();
   int axis = size.x > glm::max(size.y, size.z) ? 0 : size.y > size.z ? 1 : 2;
