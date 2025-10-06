@@ -35,22 +35,15 @@ struct Aabb {
   /// Checks whether a ray intersected with this box. Adapted from
   /// https://tavianator.com/2022/ray_box_boundary.html.
   __device__ inline bool intersect(Ray ray) const {
-    float t_min = -cuda::std::numeric_limits<float>::infinity();
-    float t_max = cuda::std::numeric_limits<float>::infinity();
-    glm::vec3 inv_dir = 1.f / ray.direction;
+    glm::vec3 t_min = (min - ray.origin) / ray.direction;
+    glm::vec3 t_max = (max - ray.origin) / ray.direction;
 
-    for (int axis = 0; axis < 3; ++axis) {
-      if (ray.direction[axis] != 0.f) {
-        float t0 = (min[axis] - ray.origin[axis]) * inv_dir[axis];
-        float t1 = (max[axis] - ray.origin[axis]) * inv_dir[axis];
+    glm::vec3 t0 = glm::min(t_min, t_max);
+    glm::vec3 t1 = glm::max(t_min, t_max);
 
-        t_min = glm::max(t_min, glm::min(t0, t1));
-        t_max = glm::min(t_max, glm::max(t0, t1));
-      } else if (ray.origin[axis] <= min[axis] || ray.origin[axis] >= max[axis]) {
-        return false;
-      }
-    }
+    float far = glm::min(glm::min(t1.x, t1.y), t1.z);
+    float near = glm::max(glm::max(t0.x, t0.y), t0.z);
 
-    return t_max > t_min && t_max > 0.f;
+    return far >= near && far > 0.f;
   }
 };
