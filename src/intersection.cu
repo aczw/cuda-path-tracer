@@ -195,7 +195,7 @@ __device__ Intersection test_bvh_isect(int root_node_idx,
   isect.t = -1.f;
   float t_min = cuda::std::numeric_limits<float>::max();
 
-  int to_check[10];
+  int to_check[32];
   int idx = 0;
   to_check[idx++] = root_node_idx;
 
