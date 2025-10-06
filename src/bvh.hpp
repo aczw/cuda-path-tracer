@@ -32,9 +32,6 @@ inline void split(int parent_node_idx,
                   const glm::mat4 transform) {
   if (depth == MAX_DEPTH) return;
 
-  // If this node has no children to split, return early as well
-  if (node_list[parent_node_idx].tri_count == 0) return;
-
   // Find axis to split along. Pick the axis by choosing the one with the biggest length
   glm::vec3 size = node_list[parent_node_idx].bbox.get_size();
   int axis = size.x > glm::max(size.y, size.z) ? 0 : size.y > size.z ? 1 : 2;
@@ -81,9 +78,12 @@ inline void split(int parent_node_idx,
     }
   }
 
-  int parent_child_idx = node_list[parent_node_idx].child_idx;
-  split(parent_child_idx, depth + 1, node_list, tri_list, positions, transform);
-  split(parent_child_idx + 1, depth + 1, node_list, tri_list, positions, transform);
+  // Only further split these children if both of them contain triangles to partition
+  if (c0.tri_count > 0 && c1.tri_count > 0) {
+    int parent_child_idx = node_list[parent_node_idx].child_idx;
+    split(parent_child_idx, depth + 1, node_list, tri_list, positions, transform);
+    split(parent_child_idx + 1, depth + 1, node_list, tri_list, positions, transform);
+  }
 }
 
 }  // namespace bvh
