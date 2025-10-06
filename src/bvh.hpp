@@ -22,7 +22,7 @@ struct Node {
   int child_idx;
 };
 
-constexpr int MAX_DEPTH = 10;
+constexpr int MAX_DEPTH = 32;
 
 inline void split(int parent_node_idx,
                   int depth,
@@ -78,8 +78,8 @@ inline void split(int parent_node_idx,
     }
   }
 
-  // Only further split these children if both of them contain triangles to partition
-  if (c0.tri_count > 0 && c1.tri_count > 0) {
+  // Only further split these children if both of them contain enough triangles to partition
+  if (c0.tri_count > 1 && c1.tri_count > 1) {
     int parent_child_idx = node_list[parent_node_idx].child_idx;
     split(parent_child_idx, depth + 1, node_list, tri_list, positions, transform);
     split(parent_child_idx + 1, depth + 1, node_list, tri_list, positions, transform);

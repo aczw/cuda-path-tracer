@@ -34,7 +34,9 @@ struct Aabb {
 
   /// Checks whether a ray intersected with this box. Adapted from
   /// https://tavianator.com/2022/ray_box_boundary.html.
-  __device__ inline bool intersect(Ray ray, glm::vec3 inv_direction) const {
+  ///
+  /// @return The closest `t` value of the intersection, or infinity if nothing was hit.
+  __device__ inline float intersect(Ray ray, glm::vec3 inv_direction) const {
     glm::vec3 t_min = (min - ray.origin) * inv_direction;
     glm::vec3 t_max = (max - ray.origin) * inv_direction;
 
@@ -44,6 +46,6 @@ struct Aabb {
     float far = glm::min(glm::min(t1.x, t1.y), t1.z);
     float near = glm::max(glm::max(t0.x, t0.y), t0.z);
 
-    return far >= near && far > 0.f;
+    return far >= near && far > 0.f ? near : cuda::std::numeric_limits<float>::infinity();
   }
 };

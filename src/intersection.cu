@@ -1,5 +1,6 @@
 #include "intersection.hpp"
 
+#include <cuda/std/cmath>
 #include <cuda/std/limits>
 
 #include <glm/gtx/intersect.hpp>
@@ -183,7 +184,7 @@ __device__ Intersection test_gltf_isect(const Geometry& gltf,
   return isect;
 }
 
-__device__ Intersection test_bvh_isect(int node_idx,
+__device__ Intersection test_bvh_isect(int root_node_idx,
                                        Ray world_ray,
                                        const Geometry& geometry,
                                        const bvh::Node* node_list,
@@ -194,9 +195,9 @@ __device__ Intersection test_bvh_isect(int node_idx,
   isect.t = -1.f;
   float t_min = cuda::std::numeric_limits<float>::max();
 
-  int stack[10];
+  int to_check[10];
   int idx = 0;
-  stack[idx++] = node_idx;
+  to_check[idx++] = root_node_idx;
 
   glm::vec3 inv_direction = 1.f / world_ray.direction;
   Ray obj_ray = {
@@ -205,9 +206,7 @@ __device__ Intersection test_bvh_isect(int node_idx,
   };
 
   while (idx > 0) {
-    const bvh::Node& node = node_list[stack[--idx]];
-
-    if (!node.bbox.intersect(world_ray, inv_direction)) continue;
+    const bvh::Node& node = node_list[to_check[--idx]];
 
     // Hit leaf
     if (node.child_idx == -1) {
@@ -219,8 +218,23 @@ __device__ Intersection test_bvh_isect(int node_idx,
         t_min = isect.t;
       }
     } else {
-      stack[idx++] = node.child_idx + 1;
-      stack[idx++] = node.child_idx;
+      const bvh::Node& c0 = node_list[node.child_idx];
+      const bvh::Node& c1 = node_list[node.child_idx + 1];
+
+      float t_result_c0 = c0.bbox.intersect(world_ray, inv_direction);
+      float t_result_c1 = c1.bbox.intersect(world_ray, inv_direction);
+
+      // Two things: first, we want to always look at the closer child BVH node first, because
+      // it may mean we get to skip checking farther BVH nodes later. Secondly, we only
+      // check the child nodes if it's closer than our current intersection.
+      bool is_c0_nearer = t_result_c0 < t_result_c1;
+      float near = is_c0_nearer ? t_result_c0 : t_result_c1;
+      float far = is_c0_nearer ? t_result_c1 : t_result_c0;
+      int child_idx_near = is_c0_nearer ? node.child_idx : node.child_idx + 1;
+      int child_idx_far = is_c0_nearer ? node.child_idx + 1 : node.child_idx;
+
+      if (far < t_min) to_check[idx++] = child_idx_far;
+      if (near < t_min) to_check[idx++] = child_idx_near;
     }
   }
 
@@ -270,8 +284,10 @@ __global__ void find_intersections(int num_paths,
   for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
     const Geometry& geometry = geometry_list[geometry_index];
 
-    if (bbox_isect_culling && !geometry.bbox.intersect(segment_ray, inv_direction)) {
-      continue;
+    if (bbox_isect_culling) {
+      float t_result = geometry.bbox.intersect(segment_ray, inv_direction);
+
+      if (cuda::std::isinf(t_result) || t_result >= t_min) continue;
     }
 
     Intersection curr_isect;

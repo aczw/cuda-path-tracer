@@ -51,7 +51,7 @@ __device__ Intersection test_gltf_isect(const Geometry& gltf,
                                         glm::vec3* position_list,
                                         glm::vec3* normal_list);
 
-__device__ Intersection test_bvh_isect(int node_idx,
+__device__ Intersection test_bvh_isect(int root_node_idx,
                                        Ray world_ray,
                                        const Geometry& geometry,
                                        const bvh::Node* node_list,
