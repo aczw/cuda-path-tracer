@@ -78,6 +78,10 @@ Schlick's approximation:
 - https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment/
 - https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9
 
+### Faking PBR
+
+#### Roughness
+
 ### Discarding paths
 
 TODO(aczw): use difference as metric to measure how effective sampling methods are?
@@ -243,6 +247,11 @@ Therefore, similar to the logic for finding the closest geometry, we keep track 
 
 Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
 
+Of course, having never built one before I needed to do some research. My implementation was primarily guided by the following two resources:
+
+- Sebastian Lague: https://www.youtube.com/watch?v=C1H4zIiCOaI
+- How to build a BVH series: https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+
 ## Credits
 
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
@@ -300,6 +309,8 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
 I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary glTF models (both .gltf and .glb files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the glTF model you wish to load.
+
+I added a `NAME` key under the `Objects` array because I wanted a way to keep track of what each geometry's role was supposed to be. This information could also be useful for debugging purposes.
 
 ### Testing
 

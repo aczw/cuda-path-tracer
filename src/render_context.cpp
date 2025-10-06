@@ -76,11 +76,11 @@ bool RenderContext::try_open_scene(std::filesystem::path scene_file) {
   gui_data = std::make_unique<GuiData>(GuiData{
       .settings = &settings,
 
-      .sort_paths_by_material = true,
+      .sort_paths_by_material = false,
       .bbox_isect_culling = true,
       .bvh_isect_culling = true,
-      .discard_oob_paths = true,
-      .discard_light_isect_paths = true,
+      .discard_oob_paths = false,
+      .discard_light_isect_paths = false,
 
       .apply_tone_mapping = false,
 

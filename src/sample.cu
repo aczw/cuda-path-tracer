@@ -3,6 +3,8 @@
 
 #include <cuda/std/optional>
 
+#include <glm/gtx/compatibility.hpp>
+
 #include <numbers>
 
 #define SQRT_ONE_THIRD 0.5773502691896257645091487805019574556476f
@@ -175,6 +177,7 @@ __global__ void sample(int num_paths,
       // PDF for cosine-weighted hemisphere sampling
       float pdf = lambert * std::numbers::inv_pi;
 
+      // Technically, all of these terms cancel out to simply be material.color
       segment.throughput *= bsdf * lambert / pdf;
 
       auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
@@ -241,6 +244,21 @@ __global__ void sample(int num_paths,
           segment.remaining_bounces = 0;
         }
       }
+
+      break;
+    }
+
+    case Pbr: {
+      auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+
+      glm::vec3 spec_dir = find_pure_reflection(og_ray, isect).direction;
+      glm::vec3 diffuse_dir = calculate_random_direction_in_hemisphere(isect.normal, rng);
+
+      segment.throughput *= material.color;
+      segment.ray = {
+          .origin = og_ray.at(isect.t),
+          .direction = glm::lerp(spec_dir, diffuse_dir, material.roughness),
+      };
 
       break;
     }

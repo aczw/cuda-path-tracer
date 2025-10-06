@@ -120,6 +120,13 @@ Scene::MatNameIdMap Scene::parse_materials(const nlohmann::json& root) {
           .color = color,
           .eta = object["ETA"],
       };
+    } else if (material_type == "PBR") {
+      new_material = {
+          .type = Material::Type::Pbr,
+          .color = color,
+          .metallic = object["METALLIC"],
+          .roughness = object["ROUGHNESS"],
+      };
     }
 
     mat_name_to_id[name] = static_cast<char>(material_list.size());
