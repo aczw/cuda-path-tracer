@@ -38,7 +38,7 @@ inline void split(int parent_node_idx,
   // Find axis to split along. Pick the axis by choosing the one with the biggest length
   glm::vec3 size = node_list[parent_node_idx].bbox.get_size();
   int axis = size.x > glm::max(size.y, size.z) ? 0 : size.y > size.z ? 1 : 2;
-  float center_pos = node_list[parent_node_idx].bbox.get_center()[axis];
+  float bbox_axis_center = node_list[parent_node_idx].bbox.get_center()[axis];
 
   // Since we haven't reached the max depth, we further split this node
   node_list[parent_node_idx].child_idx = node_list.size();
@@ -56,8 +56,8 @@ inline void split(int parent_node_idx,
     const Triangle& triangle = tri_list[tri_idx];
 
     // Use center of triangle to determine which side of the parent it should be on
-    float tri_axis_center = triangle.get_center(positions)[axis];
-    bool use_side0 = tri_axis_center < center_pos;
+    float tri_axis_center = triangle.get_center(positions, transform)[axis];
+    bool use_side0 = tri_axis_center < bbox_axis_center;
     Node& child = use_side0 ? c0 : c1;
 
     // Add this triangle to the child's group

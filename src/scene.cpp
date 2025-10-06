@@ -151,6 +151,25 @@ Opt<bool> Scene::parse_geometry(const nlohmann::json& root, const MatNameIdMap& 
     if (build_bvh_for_curr) {
       std::cout << std::format("[BVH] Building BVH for \"{}\"\n", model_name);
       build_bvh_tree(new_geometry);
+
+      int leaf_count = 0;
+      int min = cuda::std::numeric_limits<int>::max();
+      int max = cuda::std::numeric_limits<int>::min();
+      float sum = 0.f;
+
+      for (const bvh::Node& node : bvh_node_list) {
+        if (node.child_idx == -1) {
+          min = glm::min(min, node.tri_count);
+          max = glm::max(max, node.tri_count);
+          sum += node.tri_count;
+          leaf_count++;
+        }
+      }
+
+      std::cout << std::format("[BVH] Num nodes: {} / Num leaves: {}\n", bvh_node_list.size(),
+                               leaf_count);
+      std::cout << std::format("[BVH] Leaf tris: MIN {} / MAX {} / AVG {}\n", min, max,
+                               sum / leaf_count);
     }
 
     built_bvh = built_bvh || build_bvh_for_curr;

@@ -219,6 +219,13 @@ The repo contains a lot of scenes with models taken from elsewhere. Here are the
 - `stanford_bunny`: converted to glTF by me from the original PLY format. Taken from the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
 - `avocado`: taken from Khronos' [glTF sample assets](https://github.com/KhronosGroup/glTF-Sample-Assets/blob/main/Models/Avocado/README.md).
 
+## Future work
+
+Some stuff I would do differently next time:
+
+- Store geometry in world space to prevent having to transform to local object space first, perform computations, and then transform position/normals back
+- In terms of development, breaking problems into much smaller parts and individually testing each before moving on. I got bit way too many times because I wrote everything at once and then I had to debug the whole mess.
+
 ## For grading considerations
 
 I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the changes that I've made:

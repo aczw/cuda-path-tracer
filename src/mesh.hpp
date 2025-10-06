@@ -27,9 +27,10 @@ struct Triangle {
     return verts[idx];
   }
 
-  glm::vec3 get_center(const std::vector<glm::vec3>& positions) const {
-    return (positions[verts[0].pos_idx] + positions[verts[1].pos_idx] +
-            positions[verts[2].pos_idx]) /
+  glm::vec3 get_center(const std::vector<glm::vec3>& positions, const glm::mat4& transform) const {
+    return glm::vec3(transform * glm::vec4(positions[verts[0].pos_idx], 1.f) +
+                     transform * glm::vec4(positions[verts[1].pos_idx], 1.f) +
+                     transform * glm::vec4(positions[verts[2].pos_idx], 1.f)) /
            3.f;
   }
 };
