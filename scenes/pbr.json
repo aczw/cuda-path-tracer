@@ -54,7 +54,7 @@
         {
           "TYPE": "PBR",
           "RGB": [1.0, 1.0, 1.0],
-          "METALLIC": 0.25,
+          "METALLIC": 0.0,
           "ROUGHNESS": 0.9
         },
         "r1m2":
@@ -90,6 +90,111 @@
           "TYPE": "PBR",
           "RGB": [1.0, 1.0, 1.0],
           "METALLIC": 0.25,
+          "ROUGHNESS": 0.9
+        },
+        "r1m3":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.50,
+          "ROUGHNESS": 0.0
+        },
+        "r2m3":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.50,
+          "ROUGHNESS": 0.2
+        },
+        "r3m3":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.50,
+          "ROUGHNESS": 0.45
+        },
+        "r4m3":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.50,
+          "ROUGHNESS": 0.65
+        },
+        "r5m3":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.50,
+          "ROUGHNESS": 0.9
+        },
+        "r1m4":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.75,
+          "ROUGHNESS": 0.0
+        },
+        "r2m4":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.75,
+          "ROUGHNESS": 0.2
+        },
+        "r3m4":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.75,
+          "ROUGHNESS": 0.45
+        },
+        "r4m4":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.75,
+          "ROUGHNESS": 0.65
+        },
+        "r5m4":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 0.75,
+          "ROUGHNESS": 0.9
+        },
+        "r1m5":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 1.0,
+          "ROUGHNESS": 0.0
+        },
+        "r2m5":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 1.0,
+          "ROUGHNESS": 0.2
+        },
+        "r3m5":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 1.0,
+          "ROUGHNESS": 0.45
+        },
+        "r4m5":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 1.0,
+          "ROUGHNESS": 0.65
+        },
+        "r5m5":
+        {
+          "TYPE": "PBR",
+          "RGB": [1.0, 1.0, 1.0],
+          "METALLIC": 1.0,
           "ROUGHNESS": 0.9
         }
     },
@@ -218,140 +323,140 @@
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r1m1",
+            "MATERIAL":"r1m2",
             "TRANS":[-7.0,7.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r2m1",
+            "MATERIAL":"r2m2",
             "TRANS":[-3.5,7.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r3m1",
+            "MATERIAL":"r3m2",
             "TRANS":[0.0,7.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r4m1",
+            "MATERIAL":"r4m2",
             "TRANS":[3.5,7.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r5m1",
+            "MATERIAL":"r5m2",
             "TRANS":[7.0,7.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r1m1",
+            "MATERIAL":"r1m3",
             "TRANS":[-7.0,10.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r2m1",
+            "MATERIAL":"r2m3",
             "TRANS":[-3.5,10.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r3m1",
+            "MATERIAL":"r3m3",
             "TRANS":[0.0,10.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r4m1",
+            "MATERIAL":"r4m3",
             "TRANS":[3.5,10.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r5m1",
+            "MATERIAL":"r5m3",
             "TRANS":[7.0,10.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r1m1",
+            "MATERIAL":"r1m4",
             "TRANS":[-7.0,14.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r2m1",
+            "MATERIAL":"r2m4",
             "TRANS":[-3.5,14.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r3m1",
+            "MATERIAL":"r3m4",
             "TRANS":[0.0,14.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r4m1",
+            "MATERIAL":"r4m4",
             "TRANS":[3.5,14.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r5m1",
+            "MATERIAL":"r5m4",
             "TRANS":[7.0,14.0,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r1m1",
+            "MATERIAL":"r1m5",
             "TRANS":[-7.0,17.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r2m1",
+            "MATERIAL":"r2m5",
             "TRANS":[-3.5,17.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r3m1",
+            "MATERIAL":"r3m5",
             "TRANS":[0.0,17.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r4m1",
+            "MATERIAL":"r4m5",
             "TRANS":[3.5,17.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
         },
         {
             "TYPE":"sphere",
-            "MATERIAL":"r5m1",
+            "MATERIAL":"r5m5",
             "TRANS":[7.0,17.5,0.0],
             "ROTAT":[0.0,0.0,0.0],
             "SCALE":[3.0,3.0,3.0]
