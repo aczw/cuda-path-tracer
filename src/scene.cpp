@@ -5,12 +5,14 @@
 #include <glm/gtc/matrix_inverse.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <chrono>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <numbers>
 #include <string>
 #include <string_view>
+#include <unordered_set>
 
 Opt<Settings> Scene::load_from_json(std::filesystem::path scene_file) {
   std::ifstream stream(scene_file.string().data());
@@ -248,6 +250,8 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
 
   std::cout << "[GLTF] Loaded raw data, building triangles... (this might take a while)\n";
 
+  auto time_start = std::chrono::high_resolution_clock::now();
+
   for (const Primitive& primitive : first_mesh.primitives) {
     if (primitive.mode != TINYGLTF_MODE_TRIANGLES) {
       print_error("mesh primitive is not a triangle");
@@ -324,6 +328,11 @@ bool Scene::parse_gltf(Geometry& geometry, std::filesystem::path gltf_file) {
       triangle_list.push_back(std::move(triangle));
     }
   }
+
+  auto time_end = std::chrono::high_resolution_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(time_end - time_start);
+  std::cout << std::format("[GLTF] Building triangles took {} seconds\n",
+                           static_cast<double>(duration.count()) / 1000.0);
 
   // Now that we've finished populating the triangle list, get an index to the ending
   // boundary of this geometry's data
