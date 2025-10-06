@@ -198,6 +198,7 @@ __device__ Intersection test_bvh_isect(int node_idx,
   int idx = 0;
   stack[idx++] = node_idx;
 
+  glm::vec3 inv_direction = 1.f / world_ray.direction;
   Ray obj_ray = {
       .origin = glm::vec3(geometry.inv_transform * glm::vec4(world_ray.origin, 1.f)),
       .direction = glm::vec3(geometry.inv_transform * glm::vec4(world_ray.direction, 0.f)),
@@ -206,7 +207,7 @@ __device__ Intersection test_bvh_isect(int node_idx,
   while (idx > 0) {
     const bvh::Node& node = node_list[stack[--idx]];
 
-    if (!node.bbox.intersect(world_ray)) continue;
+    if (!node.bbox.intersect(world_ray, inv_direction)) continue;
 
     // Hit leaf
     if (node.child_idx == -1) {
@@ -260,6 +261,7 @@ __global__ void find_intersections(int num_paths,
   }
 
   Ray segment_ray = segment.ray;
+  glm::vec3 inv_direction = 1.f / segment_ray.direction;
   float t_min = cuda::std::numeric_limits<float>::max();
 
   Intersection isect;
@@ -268,7 +270,7 @@ __global__ void find_intersections(int num_paths,
   for (int geometry_index = 0; geometry_index < geometry_list_size; ++geometry_index) {
     const Geometry& geometry = geometry_list[geometry_index];
 
-    if (bbox_isect_culling && !geometry.bbox.intersect(segment_ray)) {
+    if (bbox_isect_culling && !geometry.bbox.intersect(segment_ray, inv_direction)) {
       continue;
     }
 

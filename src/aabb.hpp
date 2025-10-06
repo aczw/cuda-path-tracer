@@ -34,9 +34,9 @@ struct Aabb {
 
   /// Checks whether a ray intersected with this box. Adapted from
   /// https://tavianator.com/2022/ray_box_boundary.html.
-  __device__ inline bool intersect(Ray ray) const {
-    glm::vec3 t_min = (min - ray.origin) / ray.direction;
-    glm::vec3 t_max = (max - ray.origin) / ray.direction;
+  __device__ inline bool intersect(Ray ray, glm::vec3 inv_direction) const {
+    glm::vec3 t_min = (min - ray.origin) * inv_direction;
+    glm::vec3 t_max = (max - ray.origin) * inv_direction;
 
     glm::vec3 t0 = glm::min(t_min, t_max);
     glm::vec3 t1 = glm::max(t_min, t_max);
