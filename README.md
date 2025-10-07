@@ -78,8 +78,6 @@ Schlick's approximation:
 - https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment/
 - https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9
 
-### Faking PBR
-
 #### Roughness
 
 ### Discarding paths
