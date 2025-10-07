@@ -250,9 +250,6 @@ __global__ void sample(int num_paths,
 
     case Pbr: {
       auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
-      thrust::uniform_real_distribution<float> uniform_01;
-
-      bool is_metallic = uniform_01(rng) < material.metallic;
 
       glm::vec3 spec_dir = find_pure_reflection(og_ray, isect).direction;
       glm::vec3 diffuse_dir = calculate_random_direction_in_hemisphere(isect.normal, rng);
@@ -260,7 +257,7 @@ __global__ void sample(int num_paths,
       segment.throughput *= material.color;
       segment.ray = {
           .origin = og_ray.at(isect.t),
-          .direction = glm::lerp(spec_dir, diffuse_dir, material.roughness * (!is_metallic)),
+          .direction = glm::lerp(spec_dir, diffuse_dir, material.roughness),
       };
 
       break;
