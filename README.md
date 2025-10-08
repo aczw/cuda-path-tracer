@@ -149,7 +149,7 @@ Files with an alien emoji (👾) next to them indicate they contain significant 
 
 ### New materials
 
-#### Lambertian BRDF, cosine-weighted hemisphere sampling
+#### Lambertian BRDF
 
 One of my first new additions to the base code is adding a Lambertian diffuse shading model. What makes this model great is how easy it is to conceptualize and implement.
 
@@ -170,15 +170,24 @@ Of course, I had to test this material out on the classics.
 |![](renders/diffuse/suzanne_800x800_5000.png)|![](renders/diffuse/utah_teapot_800x800_5000.png)|
 |800x800 / 5000 samples|800x800 / 5000 samples|
 
-A function for cosine-weighted hemisphere sampling was already provided for us, so I didn't bother trying uniform hemisphere sampling first. The PDF for cosine-weighted sampling is given by $\frac{\text{abs}(\cos{\theta})}{\pi}$, which we also have to consider in the lighting equation.
+##### Cosine-weighted hemisphere sampling
 
-- probably explain why cosine-weighted hemisphere sampling is better than uniform sampling
+While the BSDF informs us how the rays are theoretically scattered, it doesn't mean that we can't cheat in order to speed up our rendering time. The idea behind [cosine-weighted hemisphere sampling](https://pbr-book.org/4ed/Sampling_Algorithms/Sampling_Multidimensional_Functions#Cosine-WeightedHemisphereSampling) is that we should try to sample $\omega_i$ such that rays are more likely to contribute a greater amount of light than the naive way of uniformly sampling the hemisphere.
 
-Then, the overall throughput contribution for this intersection is given by `bsdf * lambert / pdf`, where `lambert` is simply $\text{abs}(\cos{\theta})$. With no other changes, testing on the default `cornell.json` scene gives us this:
+This is guided by Lambert's cosine law: rays near the "dome" of the hemisphere (i.e. smaller incidence angle) have a greater $\omega_i\cdot\vec{n}$ value than those at the bottom. Since we're manipulating our sampling methods, we have to weigh the sampled ray accordingly. The PDF for cosine-weighted sampling is given by $\frac{\text{abs}(\cos{\theta})}{\pi}$, which we divide the whole equation by.
 
-![](renders/lambertian_cosine_weighted/cornell.2025-09-23_00-38-16z.5000samp.png)
+The function for generating a cosine-weighted ray was provided for us, so I simply called it when trying to determine $\omega_i$, and divided the color contribution by the PDF.
 
-5000 iterations.
+```cpp
+// Divide by PDF of cosine-weighted sampling
+segment.throughput *= bsdf * lambert / pdf;
+
+// Determine next ray origin and direction
+segment.ray = {
+    .origin = og_ray.at(isect.t),
+    .direction = calculate_random_direction_in_hemisphere(isect.normal, rng),
+};
+```
 
 #### Perfectly specular dielectrics
 
