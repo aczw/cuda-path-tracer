@@ -143,18 +143,49 @@ To better understand the role each file plays, here I offer a description of eac
 - [`utilities.cuh`](src/utilities.cuh) — Various little helper functions and miscellaneous things
 - [`window.hpp/cpp`](src/window.hpp) — RAII wrapper for initializing and managing the GLFW context
 
-Files with an alien emoji next to them indicate they contain significant functionality and/or interesting details.
+Files with an alien emoji (👾) next to them indicate they contain significant functionality and/or interesting details.
 
 ## Implementation and features
 
 ### New materials
 
-#### Cosine-weighted hemisphere sampling and Lambertian diffuse materials
+#### Lambertian BRDF, cosine-weighted hemisphere sampling
 
-After playing with the base code a bit and getting a sense of the overall project structure, I implemented my first material, a very simple Lambertian diffuse shading model.
+One of my first new additions to the base code is adding a Lambertian diffuse shading model. What makes this model great is how easy it is to conceptualize and implement.
 
-- probably some explanation of what it is
-- BSDF is constant with respect to the incident angle, and is simply $\frac{\text{albedo}}{\pi}$
+<div align="center">
+  <img src="images/pbrt_diffuse.png" />
+  <p>
+    <i>Credits: <a href="https://pbr-book.org/4ed/Reflection_Models" target="_blank">PBRT v4</a></i>
+  </p>
+</div>
+
+If we take a look at the rendering equation again, we'll see that what really differentiates one material from another is how $f(\omega_o,\omega_i)$ is implemented; that is, the BRDF. The Lambertian BRDF says that for an incoming ray $\omega_o$, the scattering of rays is _uniform_ within the hemisphere, as we can see in the diagram above. In other words, the BSDF is constant with respect to the incident angle.
+
+Of course, I had to test this material out on the classics.
+
+<table>
+  <tr>
+    <td width="50%">
+      <img src="renders/diffuse/sphere_800x800_5000.png" width="100%">
+      <p align="center"><code>diffuse/sphere.json</code> / 800x800 / 5000 samples</p>
+    </td>
+    <td width="50%">
+      <img src="renders/diffuse/stanford_dragon_800x800_5000.png" width="100%">
+      <p align="center"><code>diffuse/stanford_dragon.json</code> / 800x800 / 5000 samples</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="renders/diffuse/suzanne_800x800_5000.png" width="100%">
+      <p align="center"><code>diffuse/suzanne.json</code> / 800x800 / 5000 samples</p>
+    </td>
+    <td width="50%">
+      <img src="renders/diffuse/utah_teapot_800x800_5000.png" width="100%">
+      <p align="center"><code>diffuse/utah_teapot.json</code> / 800x800 / 5000 samples</p>
+    </td>
+  </tr>
+</table> 
 
 A function for cosine-weighted hemisphere sampling was already provided for us, so I didn't bother trying uniform hemisphere sampling first. The PDF for cosine-weighted sampling is given by $\frac{\text{abs}(\cos{\theta})}{\pi}$, which we also have to consider in the lighting equation.
 
@@ -366,6 +397,7 @@ Of course, having never built one before I needed to do some research. My implem
 
 ## Credits
 
+- CIS 5650 staff for the base code
 - Lewis Ghrist for the path discarding test scene ([`scenes/path_discarding.json`](scenes/path_discarding.json))
 
 ### Third party code
