@@ -1,0 +1,108 @@
+{
+    "Materials":
+    {
+        "light":
+        {
+            "TYPE":"Emitting",
+            "RGB":[1.0, 1.0, 1.0],
+            "EMITTANCE":10.0
+        },
+        "white":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[1.0, 1.0, 1.0]
+        },
+        "red":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.95, 0.35, 0.35]
+        },
+        "green":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.35, 0.95, 0.35]
+        },
+        "blue":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.45, 0.45, 0.95]
+        },
+        "purple":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.95, 0.35, 0.95]
+        },
+        "yellow":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.95, 0.95, 0.35]
+        },
+        "cyan":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.35, 0.95, 0.95]
+        }
+    },
+    "Camera":
+    {
+        "RES":[1000,1000],
+        "FOVY":45.0,
+        "ITERATIONS":10000,
+        "DEPTH":8,
+        "EYE":[0.0,5.0,10.5],
+        "LOOKAT":[0.0,5.0,0.0],
+        "UP":[0.0,1.0,0.0]
+    },
+    "Objects":
+    [
+        {
+            "TYPE":"cube",
+            "MATERIAL":"light",
+            "TRANS":[0.0,10.0,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[3.0,0.3,3.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"yellow",
+            "TRANS":[0.0,0.0,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[10.0,0.01,10.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"cyan",
+            "TRANS":[0.0,10.0,0.0],
+            "ROTAT":[0.0,0.0,90.0],
+            "SCALE":[0.01,10.0,10.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"green",
+            "TRANS":[0.0,5.0,-5.0],
+            "ROTAT":[0.0,90.0,0.0],
+            "SCALE":[0.01,10.0,10.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"blue",
+            "TRANS":[-5.0,5.0,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[0.01,10.0,10.0]
+        },
+        {
+            "TYPE":"cube",
+            "MATERIAL":"red",
+            "TRANS":[5.0,5.0,0.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[0.01,10.0,10.0]
+        },
+        {
+            "TYPE":"sphere",
+            "MATERIAL":"purple",
+            "TRANS":[0.0,4.0,-1.0],
+            "ROTAT":[0.0,0.0,0.0],
+            "SCALE":[3.5,3.5,3.5]
+        }
+    ]
+}

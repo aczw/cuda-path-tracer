@@ -166,9 +166,9 @@ Of course, I had to test this material out on the classics.
 
 |![](renders/diffuse/sphere_800x800_5000.png)|![](renders/diffuse/stanford_dragon_800x800_5000.png)|
 |:-:|:-:|
-|800x800 / 5000 samples|800x800 / 5000 samples|
+|800×800 / 5000 samples|800×800 / 5000 samples|
 |![](renders/diffuse/suzanne_800x800_5000.png)|![](renders/diffuse/utah_teapot_800x800_5000.png)|
-|800x800 / 5000 samples|800x800 / 5000 samples|
+|800×800 / 5000 samples|800×800 / 5000 samples|
 
 ##### Cosine-weighted hemisphere sampling
 
@@ -212,7 +212,7 @@ First, complete reflection.
 
 |![](renders/perf_spec_dielectric/pure_refl/pure_reflection_800x800_5000.png)|![](renders/perf_spec_dielectric/pure_refl/pure_reflection_inv_800x800_5000.png)|
 |:-:|:-:|
-|800x800 / 5000 samples|800x800 / 5000 samples|
+|800×800 / 5000 samples|800×800 / 5000 samples|
 
 The left scene has a single purely reflective material with everything around it set to diffuse. It's essentially a perfect mirror. The right scene inverts everything: every wall is purely reflective. The reason most of the scene is black is because the rays are leaving the scene and traveling out of bounds ~~and I never implemented environment maps :(~~
 
@@ -241,7 +241,7 @@ Keeping these two things in mind, we can get transmission working. Take a look.
 
 |![](renders/perf_spec_dielectric/pure_trans/pure_transmission_cube_800x800_5000_1.0.png)|![](renders/perf_spec_dielectric/pure_trans/pure_transmission_cube_800x800_5000_1.55.png)|
 |:-:|:-:|
-|800x800 / 5000 samples / IOR 1.0|800x800 / 5000 samples / IOR 1.55|
+|800×800 / 5000 samples / IOR 1.0|800×800 / 5000 samples / IOR 1.55|
 
 These renders are... interesting. How do I interpret them? Well, an IOR of 1.0 means that no refraction occurs, causing the cube to act as a passthrough. This is what gives us the scene on the left. With an IOR of 1.55 (roughly that of glass), we get the scene on the right. I believe the black portions of the cube are due to total internal reflection, which gets mitigated a little when we combine it with reflection.
 
@@ -255,7 +255,7 @@ What should the probability be? A simple solution is to set it to 50/50. However
 
 |![](images/fresnel_half_half.png)|![](images/fresnel_accurate.png)|
 |:-:|:-:|
-|800x800 / 3000 samples / IOR 1.55|800x800 / 3000 samples / IOR 1.55|
+|800×800 / 3000 samples / IOR 1.55|800×800 / 3000 samples / IOR 1.55|
 
 While both renders above are using the IOR of glass, the one on the right looks more real because we're considering the Fresnel reflectance term when randomly deciding to reflect or refract the ray:
 
@@ -313,11 +313,41 @@ I got this idea while watching Sebastian Lague's [Coding Adventure: Ray Tracing]
 
 |![](renders/roughness_test_1200x800_5000.png)|
 |:-:|
-|1200x800 / 5000 samples / Roughness, left to right: 0.0, 0.2, 0.45, 0.65, 0.9 |
+|1200×800 / 5000 samples / Roughness, left to right: 0.0, 0.2, 0.45, 0.65, 0.9 |
 
 I would say this is not bad at all! The results are a little blobby but that's to be expected for such a cheap estimate.
 
 ### Stochastic sampling (anti-aliasing)
+
+There are many ways to solve aliasing. One of the more easier ones to implement is stochastic sampling. The issue lies with my current initial camera ray generation code, which shoots the same exact ray direction for every sample of the pixel.
+
+It's very easy to think of the rendered world only in terms of pixels, but for a given pixel there might be two different geometries overlapping! If we were to use the same direction every time, we would never get to sample the other geometry's color contribution. 
+
+The solution is to add some randomness such that multiple different areas _within_ a pixel have an opportunity to be sampled.
+
+```cpp
+int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+// Derive image x-coord and y-coord from thread index
+float y = glm::ceil((static_cast<float>(index) + 1.0) / camera.resolution.x) - 1.0;
+float x = static_cast<float>(index - y * camera.resolution.x);
+
+thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, max_depth);
+thrust::uniform_real_distribution<float> uniform_01;
+
+// Reduce aliasing via stochastic sampling
+y += uniform_01(rng);
+x += uniform_01(rng);
+```
+
+That's it! We add a random value between $[0.0,1.0)$ so that the ray direction generated will never be the same for a given pixel.
+
+|![](images/stochastic_on.png)|![](images/stochastic_off.png)|
+|:-:|:-:|
+|1000×1000 / 10k samples / Stochastic sampling|1000×1000 / 10k samples / No stochastic sampling|
+|![](images/stochastic_on_detail.png)|![](images/stochastic_off_detail.png)|
+
+The jagged edges are particularly noticeable on diagonal lines. In the scene above, pay close attention to the intersection between the walls and the sphere outline.
 
 ### Thin lens camera model and depth of field
 
