@@ -191,7 +191,7 @@ segment.ray = {
 
 #### Perfectly specular dielectrics
 
-What's the opposite of the diffuse shading model? I... don't actually know the answer, but in my head it's when there's only a _discrete_ set of possibilities for $\omega_i$.
+What's the opposite of the diffuse shading model? I... don't actually know the answer, but collapsing down from an infinite set of $\omega_i$ to a _discrete_ set of possibilities sounds right to me.
 
 <div align="center">
   <img src="images/pbrt_perf_spec.png" />
@@ -202,7 +202,7 @@ What's the opposite of the diffuse shading model? I... don't actually know the a
 
 The figure depicts a _pure reflection_ about the surface normal, but for dielectrics we must also consider transmission and refractions about the normal, which are governed by the material's index of refraction (IOR).
 
-Prior to achieving dieletrics, though, I needed a way to generate purely reflective and purely transmissive rays. Such materials (probably) don't exist in real life, but in path tracing we can do whatever we want. I created these test scenes to check my implementation.
+Prior to achieving dieletrics, though, I needed a way to generate purely reflective and purely transmissive rays. Such materials (probably) don't exist in real life, but in path tracing we can do whatever we want. I created the following test scenes to check my implementation.
 
 ##### Pure reflection
 
@@ -243,24 +243,48 @@ Keeping these two things in mind, we can get transmission working. Take a look.
 
 These renders are... interesting. How do I interpret them? Well, an IOR of 1.0 means that no refraction occurs, causing the cube to act as a passthrough. This is what gives us the scene on the left. With an IOR of 1.55 (roughly that of glass), we get the scene on the right. I believe the black portions of the cube are due to total internal reflection, which gets mitigated a little when we combine it with reflection.
 
-##### Finally, glass: computing the Fresnel reflectance term
+##### Finally, glass: Fresnel reflectance term
 
-Now that we have both, let's combine them to create dielectrics! In real life, at a given intersection point such a material would spawn _multiple_ rays, consisting of a reflection component and a refraction component. To make our path tracing a little easier (and to piggyback off of the wonders of Monte Carlo) we can simply randomly choose whether to reflect or refract, and let the image converge over time.
+Now that we have both, let's combine them to create dielectrics! In real life, at a given intersection point such a material would split $\omega_o$ into _multiple_ rays, consisting of a reflection component and a refraction component.
 
-What should the probability be? A simple solution is to set it to 50/50. However, 
+To make our path tracing a little easier (and to piggyback off of the wonders of Monte Carlo) we can randomly choose whether to reflect or refract, and let the image converge over time. This is the technique chosen by [PBRT v4](https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF) which I used as a reference. Their general discussion about [specular reflection and transmission](https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission) was pretty helpful as well.
 
-Resources used:
+What should the probability be? A simple solution is to set it to 50/50. However, this wouldn't result in an accurate physical render because we're not considering the Fresnel coefficients that dictate how much light is reflected and refracted at an intersection.
 
-- https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission
-- https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF
+|![](images/fresnel_half_half.png)|![](images/fresnel_accurate.png)|
+|:-:|:-:|
+|800x800 / 3000 samples / IOR 1.55|800x800 / 3000 samples / IOR 1.55|
 
-Both are implemented. Schlick promises to be faster. Is this true?
+While both renders above are using the IOR of glass, the one on the right looks more real because we're considering the Fresnel reflectance term when randomly deciding to reflect or refract the ray:
 
-Schlick's approximation:
+```cpp
+auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+thrust::uniform_real_distribution<float> uniform_01;
 
-- https://en.wikipedia.org/wiki/Schlick's_approximation
-- https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment/
-- https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9
+float refl_term = fresnel_schlick(cos_theta(isect.normal, omega_o), eta);
+float trans_term = 1.f - refl_term;
+
+// For the inaccurate render, here we would be comparing against 0.5
+if (uniform_01(rng) < refl_term) {
+  // Treat ray as pure reflection
+} else {
+  // Treat ray as pure transmission
+}
+```
+
+In real life, calculating the reflectance term requires solving the [Fresnel equations](https://en.wikipedia.org/wiki/Fresnel_equations). However, this is graphics so we can cheat! A popular alternative is to use Schlick's approximation, first demonstrated in 1994, which computes the term in a more efficient and simple manner. Here's some resources related to the topic that helped me:
+
+- [Christophe Schlick's original paper](https://web.archive.org/web/20200510114532/http://cs.virginia.edu/~jdl/bib/appearance/analytic%20models/schlick94b.pdf). The approximation appears on page 7. Note this is a digital archive of the original page via the Wayback Machine.
+- [The Wikipedia article about the topic](https://en.wikipedia.org/wiki/Schlick's_approximation)
+- [Marc Olano's post about the topic](https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment)
+- [Chapter 9 of _Ray Tracing Gems II_](https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9)
+
+Schlick's paper claims that the approximation runs _almost 32 times faster_ than the physical equations. Is this true? To test this, I also implemented the equations. For both implementations, I ran the [`glass_spheres.json`](scenes/glass_spheres.json) scene 10 times.
+
+||1|2|3|4|5|6|7|8|9|10|Average|
+|-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+|Schlick|61.367|61.240|61.370|61.344|61.373|61.311|61.376|61.220|61.051|61.280|61.293|
+|Real|61.256|61.187|61.317|61.200|61.339|61.279|61.271|60.928|61.224|61.196|61.220|
 
 Note that I did not implement rough dielectrics, only the perfectly specular case. I would like to revisit this in the future to completely flesh out my implementation.
 
