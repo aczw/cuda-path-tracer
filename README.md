@@ -21,35 +21,62 @@ TODO: cover image
 
 ## Introduction
 
-This is a path tracer written in C++ and GPU-accelerated via CUDA. Over the course of this README I will provide a brief explanation on the theory, walk through my program structure and implementation, discuss features, and analyze some performance benchmarks that I conducted. I'll talk about what worked, what didn't (with botched renders!), and my overall experience working on this project.
+This is a path tracer written in C++, OpenGL, and GPU-accelerated via CUDA. Over the course of this README I will provide a brief explanation on the theory, walk through my program structure and implementation, discuss features, and analyze some performance benchmarks that I conducted. I'll talk about what worked, what didn't (with botched renders!), and my overall experience working on this project.
 
 ### A very physically inaccurate discussion on light
 
 At its core, a path tracer is attempting to simulate many real-life physics interactions, and therefore we must discuss some of that first. First, path tracing is all about light. For our purposes, we can treat the light in the world around us as _rays_, with an origin and a direction. They always come from a light source of some kind—a light bulb, the sun, my phone screen in bed at 4 AM.
 
-Whenever a light ray _hits_ an object, it will then bounce into a new a direction. Depending on the material that the ray _intersected_ with, it will pick up an appropriate amount of color from the object, mixing it with the color it's picked up from previous bounces.[^1] In addition, the material properties at the intersection determines which direction the next bounce will take.
+Whenever a light ray _hits_ an object, it will then bounce and pick a new direction. Depending on the material that the ray intersected with, it also picks up an appropriate amount of color, mixing it with colors from all previous bounces.[^1] In addition, the properties of the material determine which direction the next bounce will take.
 
-The reason we can see the world around us is because eventually, this light ray will bounce directly into our eyes. We could trace out the full _path_ that this light ray took from its light source to our eyes. This is what we're simulating with our path tracer.
+The reason we can see the world around us is because eventually, this light ray will bounce directly into our eyes. We could trace out the full _path_ that this light ray took from its light source to our eyes. This is what we're trying to simulate.
 
-### What a path tracer does differently
+### Deviations from the real world
 
-Since we're simply just trying to _simulate_ the real world, we can cheat in a number of ways. You'll find that everything we do is necessary in order for our implementation to work.
+Since we're just trying to _simulate_ the real world, we can cheat in a number of ways.
 
-__Begin rays from the eye instead.__ The eye in this case is our virtual camera, and it is the only ray destination we care about. Therefore, it would be extremely inefficient to shoot rays _starting_ from the light source—it is highly unlikely that such rays would contribute any pixel color information to our camera. Instead, we can shoot initial rays from the camera, and only consider its color contribution if it intersects with a light source.
+#### Begin rays from the eye instead
 
-__Rendering equation.__ Described by James Kajiya in his 1986 SIGGRAPH paper, it can be written in the form
+The eye in this case is our virtual camera, and it is the only ray destination we care about. Therefore, it would be extremely inefficient to shoot rays _starting_ from the light source—it is highly unlikely that any ray would contribute pixel color information to our camera.
+
+Instead, we can guarantee the final ray destination by shooting the initial rays from the camera. All that's left is for the ray path to intersect with a light source.
+
+#### Rendering equation
+
+Described by James Kajiya in his 1986 SIGGRAPH paper, the rendering equation can be written in the form
 
 $$
-L_o(\omega_o)=\int_{\Omega}f(\omega_o,\omega_i)L_i(\omega_i)(\omega_i\cdot\vec{n})\space\text{d}\omega_i
+L_o(\omega_o)=L_e+\int_{\Omega}f(\omega_o,\omega_i)L_i(\omega_i)(\omega_i\cdot\vec{n})\space\text{d}\omega_i
 $$
 
-This equation tells us how to find the light for an outgoing ray direction $\omega_o$ at some particular point. In particular, we have to consider the [BRDF](https://en.wikipedia.org/wiki/Bidirectional_reflectance_distribution_function) (represented by $f$), the incoming light $L_i$, and Lambert's cosine law for each incoming direction $\omega_i$ in a hemisphere $\Omega$ centered at the intersection.
+I know, the math symbols spooked me too at first, but the components actually represent pretty simple ideas. This equation tells us how to calculate the light traveling on an outgoing ray direction $\omega_o$ at some particular point.
 
-__Monte Carlo integration.__ To solve the rendering equation for an outgoing direction $\omega_o$ we have to solve the integral. Since our computer can't actually integrate over an infinite number of $\omega_i$ per intersection, a common method of resolving this issue is _randomly sampling_ a number of $\omega_i$ for each intersection, and weighing them by their probabilities of being chosen.
+We have four main components to consider:
 
-Furthermore, we repeatedly solve the rendering equation for every pixel in our image, and average the output colors by the number of samples taken. This allows us to _converge_ on to the final image over a period of time.[^2]
+- $L_e$, which is the inherent light emittance at the intersection point. In other words, this point is a light source.
+- A [BRDF](https://en.wikipedia.org/wiki/Bidirectional_reflectance_distribution_function) (represented by $f$), which tells us _how much_ of the light is reflected. This highly depends on the material.
+- The incoming light $L_i$ from ray direction $\omega_i$. Or, the accumulated value.
+- Lambert's cosine law, which relates $\omega_i$ to the surface normal.
+
+$\Omega$ represents the hemisphere centered at the intersection, and $\text{d}\omega_i$ are all the infinitesimal ray directions that make up $\Omega$. So, we're integrating over _all_ $\omega_i$. This poses some practical problems for us.[^2]
+
+#### Monte Carlo integration
+
+To solve the rendering equation for an outgoing direction $\omega_o$ we have to solve the integral. Since our computer can't actually integrate over an infinite number of $\omega_i$ per intersection, a common method of resolving this issue is _randomly sampling_ a number of $\omega_i$ for each intersection, and weighing them by their probabilities of being chosen.
+
+Furthermore, we repeatedly solve the rendering equation for every pixel in our image, and average the output colors by the number of samples taken. This allows us to _converge_ to the final image over a period of time. This can be a _long_ period of time, as we'll see.
 
 ### Parallelization
+
+While the GPU is generally known for being good at _drawing things_, in this case we are not using it for rasterization. Monte Carlo path tracing is known for being [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel), and the idea is simple: calculate the color for each pixel in parallel. The path that each pixel traces to reach a light is wholly independent of one another, so we can perform this work all at the same time.
+
+Before moving on, I would like to clarify some terminology: an __iteration__ (or __sample__) is determining the color of each pixel _once_. We average many iterations together to converge on the final image. However, within each iteration we also perform a number of bounces bounded by the _max depth_. Each bounce progresses the path traced by each pixel by one intersection (or none at all if out of bounds).
+
+In my implementation, it is within this inner "bounce" loop where we perform the majority of the work, and it is where we repeatedly launch our CUDA kernels. In a naive implementation, every kernel needs to launch at least $m \times n$ threads, where our image resolution is $m \times n$.
+
+> We'll see later that we can get away with launching less threads if we meet certain requirements.
+
+This is the part that has been parallelized, and it is where we'll spend most of our time on.
 
 ## Program structure
 
@@ -203,7 +230,7 @@ What follows was an attempt to use C++'s functional programming features. I'll e
 
 We should not perform work on paths that may have already completed. This can occur in two ways: the path has intersected with a light, and the path has traveled out of bounds. The third possibility, of course, is that the path has not finished traveling. It can be considered an "intermediate." 
 
-These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[4] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
+These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[^4] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
 
 ```cpp
 struct OutOfBounds {};
@@ -356,6 +383,6 @@ Some other stuff I've changed that should probably be pointed out:
 - I had to update the `stb_image` and `stb_image_write` versions because otherwise `tiny_gltf` would not compile.
 
 [^1]: Technically, the color of an object is determined by the light wavelengths _not_ absorbed, so the idea of "picking up" the object's color is purely a construct for understanding the path tracer.
-[^2]: And I think theoretically it will converge on to the same answer as the integral if we take the limit to infinity? It's pretty cool.
+[^2]: Little problems such as, you know, having a finite amount of memory in my computer.
 [^3]: This `lambert` term should not to be confused with the Lambertian diffuse model. It's part of the overall light transport equation and must be computed for all materials.
 [^4]: Technically, I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.
