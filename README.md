@@ -1,6 +1,3 @@
-CUDA Path Tracer
-================
-
 **University of Pennsylvania, CIS 5650: GPU Programming and Architecture, Project 3**
 
 * Charles Wang
@@ -19,6 +16,20 @@ TODO: cover image
 > [!NOTE]
 > I've significantly updated and refactored the base homework code. See an overview of each file's purpose in the [file list](#file-list), as well as [general grading considerations](#for-grading-considerations).
 
+## Table of contents
+
+- [Introduction](#introduction)
+  - [A very physically inaccurate discussion on light](#a-very-physically-inaccurate-discussion-on-light)
+  - [Deviations from the real world](#deviations-from-the-real-world)
+    - [Begin rays from the eye instead](#begin-rays-from-the-eye-instead)
+    - [Rendering equation](#rendering-equation)
+    - [Monte Carlo integration](#monte-carlo-integration)
+  - [Parallelization](#parallelization)
+- [Program structure](#program-structure)
+  - [File list](#file-list)
+- [Implementation and features](#implementation-and-features)
+  - [New materials](#new-materials)
+
 ## Introduction
 
 This is a path tracer written in C++, OpenGL, and GPU-accelerated via CUDA. Over the course of this README I will provide a brief explanation on the theory, walk through my program structure and implementation, discuss features, and analyze some performance benchmarks that I conducted. I'll talk about what worked, what didn't (with botched renders!), and my overall experience working on this project.
@@ -29,6 +40,8 @@ At its core, a path tracer is attempting to simulate many real-life physics inte
 
 Whenever a light ray _hits_ an object, it will then bounce and pick a new direction. Depending on the material that the ray intersected with, it also picks up an appropriate amount of color, mixing it with colors from all previous bounces.[^1] In addition, the properties of the material determine which direction the next bounce will take.
 
+<!-- TODO: diagram depicting ray from sun bouncing around until it hits the eye -->
+
 The reason we can see the world around us is because eventually, this light ray will bounce directly into our eyes. We could trace out the full _path_ that this light ray took from its light source to our eyes. This is what we're trying to simulate.
 
 ### Deviations from the real world
@@ -38,6 +51,8 @@ Since we're just trying to _simulate_ the real world, we can cheat in a number o
 #### Begin rays from the eye instead
 
 The eye in this case is our virtual camera, and it is the only ray destination we care about. Therefore, it would be extremely inefficient to shoot rays _starting_ from the light source—it is highly unlikely that any ray would contribute pixel color information to our camera.
+
+<!-- TODO: diagram depicting ray from camera around until it hits the sun -->
 
 Instead, we can guarantee the final ray destination by shooting the initial rays from the camera. All that's left is for the ray path to intersect with a light source.
 
@@ -68,35 +83,68 @@ Furthermore, we repeatedly solve the rendering equation for every pixel in our i
 
 ### Parallelization
 
-While the GPU is generally known for being good at _drawing things_, in this case we are not using it for rasterization. Monte Carlo path tracing is known for being [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel), and the idea is simple: calculate the color for each pixel in parallel. The path that each pixel traces to reach a light is wholly independent of one another, so we can perform this work all at the same time.
+While the GPU is generally known for being good at _drawing things_, in this case we are not using it for rasterization. Monte Carlo path tracing is known for being [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel), and the idea is simple: calculate the color for each pixel in parallel. The path that each pixel traces to reach a light is wholly independent of one another, marking it as a good candidate.
 
-Before moving on, I would like to clarify some terminology: an __iteration__ (or __sample__) is determining the color of each pixel _once_. We average many iterations together to converge on the final image. However, within each iteration we also perform a number of bounces bounded by the _max depth_. Each bounce progresses the path traced by each pixel by one intersection (or none at all if out of bounds).
+First, I would like to clarify some terminology: an __iteration__ (or __sample__) is determining the color of each pixel _once_. We average many iterations together to converge on the final image. However, within each iteration we also perform a number of bounces bounded by the _max depth_. Each bounce progresses the path traced by each pixel by one intersection (or none at all if out of bounds).
 
-In my implementation, it is within this inner "bounce" loop where we perform the majority of the work, and it is where we repeatedly launch our CUDA kernels. In a naive implementation, every kernel needs to launch at least $m \times n$ threads, where our image resolution is $m \times n$.
+This distinction is important because there are two main ways we could have implemented parallelism, with the difference being what kind of work is being performed in a thread:
 
-> We'll see later that we can get away with launching less threads if we meet certain requirements.
+- Each thread performs one whole iteration.
+- Each thread performs one bounce in a iteration. (I implemented this.)
 
-This is the part that has been parallelized, and it is where we'll spend most of our time on.
+By taking a incremental approach, we gain some additional optimization opportunities. We'll see later that we can get away with launching less threads if we meet certain requirements.
 
 ## Program structure
 
-- Path tracer is run for a certain number of iterations. This is determined by the scene file we're currently running
-- Each iteration, represented by one call to `PathTracer::run_iteration`, first generates the initial set of rays coming out of the camera
-- Then we enter a loop that does the following:
-  - Using the calculated rays, compute potential intersections with the scene
-  - Stream compaction away dead paths, i.e. paths that did not intersect with anything or went out of bounds
-  - Add the light and color contribution to the path
-  - Determine the next ray to travel to
-- We exit the loop if we've either hit the max accepted depth (this should be kinda rare) or we've stream compacted away all paths (more likely to occur)
-- Gather pixel color from each path by appending it to all previous contributions and display it
+To provide a general overview of how my path tracer functions, here I describe a single execution loop of my program. One execution of this loop results in _one_ iteration of the path tracer.
+
+> If you're curious, this corresponds with the `void loop(RenderContext* ctx, GLFWwindow* window)` function found in [`src/main.cpp`](src/main.cpp).
+
+In each execution of the loop, until we've reached the max number of samples:
+
+- Check if camera or GUI toggles have changed. If so, reset the samples and start over.
+- Generate initial rays from the camera. That is, their origins are at the eye. 
+- Perform work in inner loop:
+  - For each ray, find intersections with scene geometry, if any.
+  - If enabled, discard intersections that traveled out of bounds.
+  - If enabled, sort the paths by the material they intersected with.
+  - For each intersection, calculate its color contribution, and determine the next ray (technically the _previous_ ray, since we're choosing a $\omega_i$ to travel to).
+  - If enabled, discard intersections that have hit a light source.
+  - If we've reached the max depth or we've discarded all paths, break out of the loop. Otherwise, repeat another iteration.
+- Gather all the final color contribution for each pixel, and append it to our image data.
+- Divide each raw pixel data by the number of samples, and send the data to OpenGL for rendering.
 
 ### File list
 
 To better understand the role each file plays, here I offer a description of each.
 
-## Features
+- [`aabb.hpp`](src/aabb.hpp) — Creating, managing axis-aligned bounding boxes
+- [`bvh.hpp`](src/bvh.hpp) 👾 — Constructing, traversing bounding volume hierarchies
+- [`camera.hpp/cpp`](src/camera.hpp) — Structures for tracking camera state
+- [`external.cpp`](src/external.cpp) — Necessary for compiling `tiny_gltf` and `stb_image`
+- [`geometry.hpp`](src/geometry.hpp) — Structure for scene geometry objects
+- [`glslUtility.hpp/cpp`](src/glslUtility.hpp) — Helper for loading, reading, and compiling GLSL
+- [`gui_data.hpp`](src/gui_data.hpp) — Stores settings toggleable from ImGUI
+- [`image.hpp/cpp`](src/image.hpp) — Helper class for writing the final output image
+- [`intersection.hpp/cu`](src/intersection.cu) 👾 — Main intersection kernel and intersection tests
+- [`main.cpp`](src/main.cpp) 👾 — Initializes and runs the program
+- [`material.hpp`](src/material.hpp) — Structure for material properties
+- [`mesh.hpp`](src/mesh.hpp) — Primitive structures for representing meshes
+- [`path_segment.hpp`](src/path_segment.hpp) — Structure for tracking the state of a path
+- [`path_tracer.hpp/cu`](src/path_tracer.cu) 👾 — Main path tracing loop and various helpers
+- [`ray.hpp`](src/ray.hpp) — Ray data structure
+- [`render_context.hpp/cpp`](src/render_context.hpp) — RAII wrapper to store all the state in the program
+- [`sample.hpp/cu`](src/sample.cu) 👾 — Main sample kernel for calculating color contribution and determining $\omega_i$
+- [`scene.hpp/cpp`](src/scene.hpp) 👾 — Scene representation, model loading, and validation
+- [`tone_mapping.cuh`](src/tone_mapping.cuh) — Helpers for gamma correction
+- [`utilities.cuh`](src/utilities.cuh) — Various little helper functions and miscellaneous things
+- [`window.hpp/cpp`](src/window.hpp) — RAII wrapper for initializing and managing the GLFW context
 
-Roughly organized in chronological order of when I first implemented it.
+Files with an alien emoji next to them indicate they contain significant functionality and/or interesting details.
+
+## Implementation and features
+
+Roughly organized in chronological order of when I first started working on it.
 
 ### New materials
 
