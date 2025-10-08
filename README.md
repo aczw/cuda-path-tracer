@@ -36,6 +36,9 @@ This is a path tracer written in C++, OpenGL, and GPU-accelerated via CUDA. Over
 
 ### A very physically inaccurate discussion on light
 
+> [!NOTE]
+> Feel free to skip the next few sections if you're familiar with path tracing. Jump to my [program structure](#program-structure) or the [list of features](#implementation-and-features) below.
+
 At its core, a path tracer is attempting to simulate many real-life physics interactions, and therefore we must discuss some of that first. First, path tracing is all about light. For our purposes, we can treat the light in the world around us as _rays_, with an origin and a direction. They always come from a light source of some kind—a light bulb, the sun, my phone screen in bed at 4 AM.
 
 Whenever a light ray _hits_ an object, it will then bounce and pick a new direction. Depending on the material that the ray intersected with, it also picks up an appropriate amount of color, mixing it with colors from all previous bounces.[^1] In addition, the properties of the material determine which direction the next bounce will take.
@@ -83,14 +86,14 @@ Furthermore, we repeatedly solve the rendering equation for every pixel in our i
 
 ### Parallelization
 
-While the GPU is generally known for being good at _drawing things_, in this case we are not using it for rasterization. Monte Carlo path tracing is known for being [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel), and the idea is simple: calculate the color for each pixel in parallel. The path that each pixel traces to reach a light is wholly independent of one another, marking it as a good candidate.
+While the GPU is generally known for being good at _drawing things_, in this case we are not using it for rasterization. Monte Carlo path tracing is considered [embarrassingly parallel](https://en.wikipedia.org/wiki/Embarrassingly_parallel), and the idea is simple: calculate the color for each pixel in parallel. The path that each pixel traces to reach a light is wholly independent of one another, marking it as a good candidate.
 
-First, I would like to clarify some terminology: an __iteration__ (or __sample__) is determining the color of each pixel _once_. We average many iterations together to converge on the final image. However, within each iteration we also perform a number of bounces bounded by the _max depth_. Each bounce progresses the path traced by each pixel by one intersection (or none at all if out of bounds).
+First, I would like to clarify some terminology: an __iteration__ (or __sample__) is determining the color of each pixel _once_. We average many iterations together to converge on the final image. However, within each iteration we also perform a number of bounces bounded by the _max depth_. Each bounce progresses the path traced by each pixel by one intersection (or none if out of bounds). In other words, multiple bounces lead to one sample.
 
 This distinction is important because there are two main ways we could have implemented parallelism, with the difference being what kind of work is being performed in a thread:
 
 - Each thread performs one whole iteration.
-- Each thread performs one bounce in a iteration. (I implemented this.)
+- Each thread performs one bounce in a iteration. (I did this.)
 
 By taking a incremental approach, we gain some additional optimization opportunities. We'll see later that we can get away with launching less threads if we meet certain requirements.
 
@@ -108,7 +111,7 @@ In each execution of the loop, until we've reached the max number of samples:
   - For each ray, find intersections with scene geometry, if any.
   - If enabled, discard intersections that traveled out of bounds.
   - If enabled, sort the paths by the material they intersected with.
-  - For each intersection, calculate its color contribution, and determine the next ray (technically the _previous_ ray, since we're choosing a $\omega_i$ to travel to).
+  - For each intersection, calculate its color contribution, and determine the next ray.[^3]
   - If enabled, discard intersections that have hit a light source.
   - If we've reached the max depth or we've discarded all paths, break out of the loop. Otherwise, repeat another iteration.
 - Gather all the final color contribution for each pixel, and append it to our image data.
@@ -144,8 +147,6 @@ Files with an alien emoji next to them indicate they contain significant functio
 
 ## Implementation and features
 
-Roughly organized in chronological order of when I first started working on it.
-
 ### New materials
 
 #### Cosine-weighted hemisphere sampling and Lambertian diffuse materials
@@ -159,7 +160,7 @@ A function for cosine-weighted hemisphere sampling was already provided for us, 
 
 - probably explain why cosine-weighted hemisphere sampling is better than uniform sampling
 
-Then, the overall throughput contribution for this intersection is given by `bsdf * lambert / pdf`, where `lambert` is simply $\text{abs}(\cos{\theta})$.[^3] With no other changes, testing on the default `cornell.json` scene gives us this:
+Then, the overall throughput contribution for this intersection is given by `bsdf * lambert / pdf`, where `lambert` is simply $\text{abs}(\cos{\theta})$. With no other changes, testing on the default `cornell.json` scene gives us this:
 
 ![](renders/lambertian_cosine_weighted/cornell.2025-09-23_00-38-16z.5000samp.png)
 
@@ -430,7 +431,7 @@ Some other stuff I've changed that should probably be pointed out:
 - Pressing Esc does not save an image anymore. Pressing S still does this.
 - I had to update the `stb_image` and `stb_image_write` versions because otherwise `tiny_gltf` would not compile.
 
-[^1]: Technically, the color of an object is determined by the light wavelengths _not_ absorbed, so the idea of "picking up" the object's color is purely a construct for understanding the path tracer.
-[^2]: Little problems such as, you know, having a finite amount of memory in my computer.
-[^3]: This `lambert` term should not to be confused with the Lambertian diffuse model. It's part of the overall light transport equation and must be computed for all materials.
-[^4]: Technically, I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.
+[^1]: In actuality, the color of an object is determined by the light wavelengths _not_ absorbed, so the idea of "picking up" the object's color is purely a construct for understanding the path tracer.
+[^2]: Small problems such as, you know, having a finite amount of memory in my computer.
+[^3]: We're technically finding the _previous_ ray, since we're choosing a $\omega_i$ to travel to. Remember that we're working backwards from the camera to a light source.
+[^4]: I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.
