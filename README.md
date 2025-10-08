@@ -16,19 +16,21 @@ TODO: cover image
 > [!NOTE]
 > I've significantly updated and refactored the base homework code. See an overview of each file's purpose in the [file list](#file-list), as well as [general grading considerations](#for-grading-considerations).
 
-## Table of contents
+## Brief overview
+
+For a complete table of contents, use the Outline button that GitHub provides in the upper right corner of this file.
 
 - [Introduction](#introduction)
   - [A very physically inaccurate discussion on light](#a-very-physically-inaccurate-discussion-on-light)
   - [Deviations from the real world](#deviations-from-the-real-world)
-    - [Begin rays from the eye instead](#begin-rays-from-the-eye-instead)
-    - [Rendering equation](#rendering-equation)
-    - [Monte Carlo integration](#monte-carlo-integration)
   - [Parallelization](#parallelization)
 - [Program structure](#program-structure)
-  - [File list](#file-list)
 - [Implementation and features](#implementation-and-features)
   - [New materials](#new-materials)
+    - [Lambertian BRDF](#lambertian-brdf)
+    - [Perfectly specular dielectrics](#perfectly-specular-dielectrics)
+  - [Stochastic sampling](#stochastic-sampling-anti-aliasing)
+  - [Depth of field and thin lens camera model](#depth-of-field-and-thin-lens-camera-model)
 
 ## Introduction
 
@@ -359,9 +361,40 @@ That's it! We add a random value between $[0.0,1.0)$ so that the ray direction g
 
 The jagged edges are particularly noticeable on diagonal or curved lines. In the scene above, pay close attention to the intersection between the walls and the sphere outline.
 
-### Thin lens camera model and depth of field
+### Depth of field and thin lens camera model
 
-### Tone mapping
+We've been adding a lot of features to the scene. What about the camera itself?
+
+In graphics we often like using a [pinhole camera model](https://en.wikipedia.org/wiki/Pinhole_camera), which assumes that all rays must travel through a single infinitesimal point in order to hit the (imaginary) film plane. However, by instead simulating a thin lens with an aperature diameter, we can achieve more interesting effects such that depth of field. This essentially comes for free with path tracing because of how we're simulating light.
+
+PBRT v4 (I love this book) has a great [section on thin lens models](https://pbr-book.org/4ed/Cameras_and_Film/Projective_Camera_Models#TheThinLensModelandDepthofField), which I referenced for my DOF implementation. The code is actually pretty simple: sample a random point within the lens (which is thin enough to simply be considered a circle), and use that as the initial camera ray's origin.
+
+```cpp
+thrust::default_random_engine rng = make_seeded_random_engine(curr_iter, index, max_depth);
+thrust::uniform_real_distribution<float> uniform_01;
+
+// Sample point on lens
+glm::vec2 sample = sample_uniform_disk_concentric(uniform_01(rng), uniform_01(rng));
+glm::vec2 lens_point = settings.lens_radius * sample;
+
+// We want the relative distance from the camera to the plane of focus, so it
+// doesn't matter what sign  the ray direction is
+float t = settings.focal_distance / glm::abs(ray.direction.z);
+glm::vec3 focus = ray.at(t);
+
+// Offset ray origin by lens sample point and adjust direction such that the ray still
+// intersects with the same point on the plane of focus
+ray.origin += glm::vec3(lens_point.x, lens_point.y, 0.f);
+ray.direction = glm::normalize(focus - ray.origin);
+```
+
+We also adjust the ray direction such that it will intersect with the imaginary focus point defined by us. This is what allows us to "focus" a particular slice of the scene, and blur everything else.
+
+|![](renders/dof/dof_800x800_5000_12_bunny.png)|![](renders/dof/dof_800x800_5000_12_sphere.png)|
+|:-:|:-:|
+|800×800 / 5000 samples / 12 depth|800×800 / 5000 samples / 12 depth|
+
+Here we can see the focus point at two different places: the Stanford bunny, and the sphere.
 
 ### Discarding paths
 
@@ -575,16 +608,19 @@ I've somewhat modified the [CMakeLists.txt](CMakeLists.txt) file. Here are the c
 - Moved the `include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")` call out of the `if(UNIX)` branch to make it available on Windows as well
 - Renamed and moved various file and updated `headers` and `sources` accordingly.
 - Renamed `stb.cpp` to `external.cpp` because I added `tiny_gltf` as well.
-- I use VS Code for development, so all my relative paths in the scene files are different from the ones used in Visual Studio. I find that I have to remove two of the "../" for Visual Studio to work.
 - Updated to C++20.
 
 ### Changes to the scene file format
 
 I've removed the `FILE` key from the `Camera` object because I've modified my output image name to reuse the JSON file name. I've also added additional material types:
 
+- `Unknown`
 - `PureReflection`
 - `PureTransmission`
 - `PerfectSpecular`
+- `Pbr`
+
+I use VS Code for development, so all my relative paths in the scene files are different from the ones used in Visual Studio. I find that I have to remove two of the "../" for Visual Studio to work.
 
 I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
