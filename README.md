@@ -191,17 +191,68 @@ segment.ray = {
 
 #### Perfectly specular dielectrics
 
-Prior to achieving dieletrics, I first had to write the BRDF and BTDF components. Although these materials can't exist in real life, they still look "realistic" and I created these test scenes to check my implementation:
+What's the opposite of the diffuse shading model? I... don't actually know the answer, but in my head it's when there's only a _discrete_ set of possibilities for $\omega_i$.
 
-- Complete reflection
-- Complete transmission
+<div align="center">
+  <img src="images/pbrt_perf_spec.png" />
+  <p>
+    <i>Credits: <a href="https://pbr-book.org/4ed/Reflection_Models" target="_blank">PBRT v4</a></i>
+  </p>
+</div>
+
+The figure depicts a _pure reflection_ about the surface normal, but for dielectrics we must also consider transmission and refractions about the normal, which are governed by the material's index of refraction (IOR).
+
+Prior to achieving dieletrics, though, I needed a way to generate purely reflective and purely transmissive rays. Such materials (probably) don't exist in real life, but in path tracing we can do whatever we want. I created these test scenes to check my implementation.
+
+##### Pure reflection
+
+First, complete reflection.
+
+|![](renders/perf_spec_dielectric/pure_refl/pure_reflection_800x800_5000.png)|![](renders/perf_spec_dielectric/pure_refl/pure_reflection_inv_800x800_5000.png)|
+|:-:|:-:|
+|800x800 / 5000 samples|800x800 / 5000 samples|
+
+The left scene has a single purely reflective material with everything around it set to diffuse. It's essentially a perfect mirror. The right scene inverts everything: every wall is purely reflective. The reason most of the scene is black is because the rays are leaving the scene and traveling out of bounds ~~and I never implemented environment maps :(~~
+
+##### Pure transmission
+
+Transmission was much trickier to implement. Two things in particular stood out.
+
+First, IORs are always defined relative to _something_.[^4] At a given intersection point, we always need to know what medium we're _entering_ and what medium we're _leaving_, because that affects the IOR ratio. How I keep track of this is to store an additional enum in my `Intersection` data struct that informs me whether the intersection was with the outside of a surface, or inside. Depending on the surface, we may have to flip the IOR.
+
+```cpp
+/// Tracks which side of the geometry the intersection is at.
+enum class Surface : char { Inside, Outside };
+
+// GLSL/GLM refract expects the IOR ratio to be incident over target, so
+// we treat the default as us starting from inside the material
+if (isect.surface == Surface::Outside) {
+  eta = 1.f / eta;
+}
+```
+
+Second, there are specific cases where the incident angle is so large with respect to the surface normal that a refraction actually causes a reflection _back into_ the original medium. This is called [total internal reflection](https://en.wikipedia.org/wiki/Total_internal_reflection), and we have to check for this possibility. Both GLSL and `glm::refract` return zero when this occurs, which I check for and return `std::nullopt`, indicating that no transmissive ray could be generated for this intersection.
+
+> Yes, my pure transmission function returns `std::optional<Ray>`.
+
+Keeping these two things in mind, we can get transmission working. Take a look.
+
+|![](renders/perf_spec_dielectric/pure_trans/pure_transmission_cube_800x800_5000_1.0.png)|![](renders/perf_spec_dielectric/pure_trans/pure_transmission_cube_800x800_5000_1.55.png)|
+|:-:|:-:|
+|800x800 / 5000 samples / IOR 1.0|800x800 / 5000 samples / IOR 1.55|
+
+These renders are... interesting. How do I interpret them? Well, an IOR of 1.0 means that no refraction occurs, causing the cube to act as a passthrough. This is what gives us the scene on the left. With an IOR of 1.55 (roughly that of glass), we get the scene on the right. I believe the black portions of the cube are due to total internal reflection, which gets mitigated a little when we combine it with reflection.
+
+##### Finally, glass: computing the Fresnel reflectance term
+
+Now that we have both, let's combine them to create dielectrics! In real life, at a given intersection point such a material would spawn _multiple_ rays, consisting of a reflection component and a refraction component. To make our path tracing a little easier (and to piggyback off of the wonders of Monte Carlo) we can simply randomly choose whether to reflect or refract, and let the image converge over time.
+
+What should the probability be? A simple solution is to set it to 50/50. However, 
 
 Resources used:
 
 - https://pbr-book.org/4ed/Reflection_Models/Specular_Reflection_and_Transmission
 - https://pbr-book.org/4ed/Reflection_Models/Dielectric_BSDF
-
-##### Computing the Fresnel reflectance term
 
 Both are implemented. Schlick promises to be faster. Is this true?
 
@@ -211,7 +262,15 @@ Schlick's approximation:
 - https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment/
 - https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9
 
+Note that I did not implement rough dielectrics, only the perfectly specular case. I would like to revisit this in the future to completely flesh out my implementation.
+
 #### Roughness
+
+### Stochastic sampling (anti-aliasing)
+
+### Thin lens camera model and depth of field
+
+### Tone mapping
 
 ### Discarding paths
 
@@ -238,12 +297,6 @@ Another optimization I made is to keep paths that intersected the same material 
 The reason for this change is to reduce random accesses into the global material list within a warp. By grouping these paths together, they all benefit from the potential caching benefits of accessing the same material over and over. The more materials in the scene, the more pronounced this effect will be.
 
 TODO(aczw): prove this
-
-### Stochastic sampling (anti-aliasing)
-
-### Thin lens camera model and depth of field
-
-### Tone mapping
 
 ### Codebase rewrite
 
@@ -302,7 +355,7 @@ What follows was an attempt to use C++'s functional programming features. I'll e
 
 We should not perform work on paths that may have already completed. This can occur in two ways: the path has intersected with a light, and the path has traveled out of bounds. The third possibility, of course, is that the path has not finished traveling. It can be considered an "intermediate." 
 
-These 3 cases informed the design of my `Intersection` object. It's just a `std::variant`[^4] in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
+These 3 cases informed the design of my `Intersection` object. It's just a `std::variant` in disguise, modeling the three possibilities above. In other words, it's a [sum type](https://en.wikipedia.org/wiki/Tagged_union).
 
 ```cpp
 struct OutOfBounds {};
@@ -394,11 +447,11 @@ Of course, having never built one before I needed to do some research. My implem
 
 ### Third party code
 
-- As mentioned above, I use [`tinygltf`](https://github.com/syoyo/tinygltf) for loading the initial glTF model data.
+- I use [`tinygltf`](https://github.com/syoyo/tinygltf) for loading the initial glTF model data.
 
 ### Custom models
 
-The repo contains a lot of scenes with models taken from elsewhere. Here are their sources:
+The repo contains a lot of scenes with models taken from elsewhere. Here are their sources.
 
 - `suzanne`, `blender_cube`, `plane`: exported from Blender.
 - `utah_teapot`: I tried finding the original source model. The closest I could find is from [David E. Johnson's University of Utah page](https://users.cs.utah.edu/~dejohnso/models/models.html). I converted the "Boolean Combined Teapot" .stl file to glTF.
@@ -458,4 +511,4 @@ Some other stuff I've changed that should probably be pointed out:
 [^1]: In actuality, the color of an object is determined by the light wavelengths _not_ absorbed, so the idea of "picking up" the object's color is purely a construct for understanding the path tracer.
 [^2]: Small problems such as, you know, having a finite amount of memory in my computer.
 [^3]: We're technically finding the _previous_ ray, since we're choosing a $\omega_i$ to travel to. Remember that we're working backwards from the camera to a light source.
-[^4]: I'm using `cuda::std::variant` from `libcu++` for better compatibility with CUDA code, but they should be the same.
+[^4]: For my path tracer, one side of the ratio is always a vacuum, which has an IOR of 1.0. This simplifies a lot of calculations.
