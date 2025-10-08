@@ -202,6 +202,8 @@ What's the opposite of the diffuse shading model? I... don't actually know the a
 
 The figure depicts a _pure reflection_ about the surface normal, but for dielectrics we must also consider transmission and refractions about the normal, which are governed by the material's index of refraction (IOR).
 
+> Note that I did not implement rough dielectrics, only the perfectly specular case. I would like to revisit this in the future to completely flesh out my implementation.
+
 Prior to achieving dieletrics, though, I needed a way to generate purely reflective and purely transmissive rays. Such materials (probably) don't exist in real life, but in path tracing we can do whatever we want. I created the following test scenes to check my implementation.
 
 ##### Pure reflection
@@ -279,14 +281,16 @@ In real life, calculating the reflectance term requires solving the [Fresnel equ
 - [Marc Olano's post about the topic](https://umbcgaim.wordpress.com/2010/07/15/fresnel-environment)
 - [Chapter 9 of _Ray Tracing Gems II_](https://link.springer.com/chapter/10.1007/978-1-4842-7185-8_9)
 
-Schlick's paper claims that the approximation runs _almost 32 times faster_ than the physical equations. Is this true? To test this, I also implemented the equations. For both implementations, I ran the [`glass_spheres.json`](scenes/glass_spheres.json) scene 10 times.
+Schlick's paper claims that the approximation runs _almost 32 times faster_ than the physical equations. Is this true? To test this, I also implemented the equations. For both implementations, I ran the [`glass_spheres.json`](scenes/glass_spheres.json) scene 10 times, averaging the frames for each.
 
 ||1|2|3|4|5|6|7|8|9|10|Average|
 |-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-|Schlick|61.367|61.240|61.370|61.344|61.373|61.311|61.376|61.220|61.051|61.280|61.293|
-|Real|61.256|61.187|61.317|61.200|61.339|61.279|61.271|60.928|61.224|61.196|61.220|
+|Schlick|61.367|61.240|61.370|61.344|61.373|61.311|61.376|61.220|61.051|61.280|**61.293**|
+|Real|61.256|61.187|61.317|61.200|61.339|61.279|61.271|60.928|61.224|61.196|**61.220**|
 
-Note that I did not implement rough dielectrics, only the perfectly specular case. I would like to revisit this in the future to completely flesh out my implementation.
+<div align="center"><p><i>Frames per second (FPS), higher is better</i></p></div>
+
+Schlick appears to be 0.119% faster, which is not significant enough to make a claim about anything. I am not sure why I'm not getting more drastic results. My best guess is that my testing environment is flawed or biased in some manner.
 
 #### Roughness
 
