@@ -266,6 +266,29 @@ Note that I did not implement rough dielectrics, only the perfectly specular cas
 
 #### Roughness
 
+While I did not implement anything close to actual PBR techniques, I was curious how far I could take my pre-existing diffuse and perfectly specular shading models to mimic actual PBR. I only had time to introduce a _roughness_ slider that simply lerps between the diffuse and specular ray directions:
+
+```cpp
+auto rng = make_seeded_random_engine(curr_iter, index, curr_depth);
+
+glm::vec3 spec_dir = find_pure_reflection(og_ray, isect).direction;
+glm::vec3 diffuse_dir = calculate_random_direction_in_hemisphere(isect.normal, rng);
+
+segment.throughput *= material.color;
+segment.ray = {
+    .origin = og_ray.at(isect.t),
+    .direction = glm::lerp(spec_dir, diffuse_dir, material.roughness),
+};
+```
+
+I got this idea while watching Sebastian Lague's [Coding Adventure: Ray Tracing](https://www.youtube.com/watch?v=Qz0KTGYJtUk) video. Well, how ~~bad~~ good is it?
+
+|![](renders/roughness_test_1200x800_5000.png)|
+|:-:|
+|1200x800 / 5000 samples / Roughness, left to right: 0.0, 0.2, 0.45, 0.65, 0.9 |
+
+I would say this is not bad at all! The results are a little blobby but that's to be expected for such a cheap estimate.
+
 ### Stochastic sampling (anti-aliasing)
 
 ### Thin lens camera model and depth of field
