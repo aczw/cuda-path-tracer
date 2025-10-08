@@ -164,28 +164,11 @@ If we take a look at the rendering equation again, we'll see that what really di
 
 Of course, I had to test this material out on the classics.
 
-<table>
-  <tr>
-    <td width="50%">
-      <img src="renders/diffuse/sphere_800x800_5000.png" width="100%">
-      <p align="center"><code>diffuse/sphere.json</code> / 800x800 / 5000 samples</p>
-    </td>
-    <td width="50%">
-      <img src="renders/diffuse/stanford_dragon_800x800_5000.png" width="100%">
-      <p align="center"><code>diffuse/stanford_dragon.json</code> / 800x800 / 5000 samples</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <img src="renders/diffuse/suzanne_800x800_5000.png" width="100%">
-      <p align="center"><code>diffuse/suzanne.json</code> / 800x800 / 5000 samples</p>
-    </td>
-    <td width="50%">
-      <img src="renders/diffuse/utah_teapot_800x800_5000.png" width="100%">
-      <p align="center"><code>diffuse/utah_teapot.json</code> / 800x800 / 5000 samples</p>
-    </td>
-  </tr>
-</table> 
+|![](renders/diffuse/sphere_800x800_5000.png)|![](renders/diffuse/stanford_dragon_800x800_5000.png)|
+|:-:|:-:|
+|800x800 / 5000 samples|800x800 / 5000 samples|
+|![](renders/diffuse/suzanne_800x800_5000.png)|![](renders/diffuse/utah_teapot_800x800_5000.png)|
+|800x800 / 5000 samples|800x800 / 5000 samples|
 
 A function for cosine-weighted hemisphere sampling was already provided for us, so I didn't bother trying uniform hemisphere sampling first. The PDF for cosine-weighted sampling is given by $\frac{\text{abs}(\cos{\theta})}{\pi}$, which we also have to consider in the lighting equation.
 
