@@ -342,12 +342,22 @@ x += uniform_01(rng);
 
 That's it! We add a random value between $[0.0,1.0)$ so that the ray direction generated will never be the same for a given pixel.
 
-|![](images/stochastic_on.png)|![](images/stochastic_off.png)|
-|:-:|:-:|
-|1000×1000 / 10k samples / Stochastic sampling|1000×1000 / 10k samples / No stochastic sampling|
-|![](images/stochastic_on_detail.png)|![](images/stochastic_off_detail.png)|
+<table>
+  <tr width="100%">
+    <td><img width="100%" src="images/stochastic_on.png"></td>
+    <td><img width="100%" src="images/stochastic_off.png"></td>
+  </tr>
+  <tr width="100%">
+    <td>1000×1000 / 10k samples / Stochastic sampling</td>
+    <td>1000×1000 / 10k samples / No stochastic sampling</td>
+  </tr>
+  <tr width="100%">
+    <td><img width="100%" src="images/stochastic_on_detail.png"></td>
+    <td><img width="100%" src="images/stochastic_off_detail.png"></td>
+  </tr>
+</table>
 
-The jagged edges are particularly noticeable on diagonal lines. In the scene above, pay close attention to the intersection between the walls and the sphere outline.
+The jagged edges are particularly noticeable on diagonal or curved lines. In the scene above, pay close attention to the intersection between the walls and the sphere outline.
 
 ### Thin lens camera model and depth of field
 
