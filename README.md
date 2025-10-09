@@ -11,7 +11,9 @@
 
 # CUDA Path Tracer
 
-TODO: cover image
+|![](renders/checkerboard_1280x720_10000.png)|
+|:-:|
+|1280×720 / 10k samples / 8 depth|
 
 > [!NOTE]
 > I've significantly updated and refactored the base homework code. See an overview of each file's purpose in the [file list](#file-list), as well as [general grading considerations](#for-grading-considerations).
@@ -463,6 +465,10 @@ If we show the kernel operations in the Events View and sort by duration, we can
 So, reducing the number of intersections with the scene will be one of the most high-impact changes we can make. My path tracer offers two solutions: AABBs and BVHs.
 
 #### Axis-aligned bounding boxes (AABB)
+
+Axis-aligned bounding boxes are conceptually simple and also easy to implement. 
+
+However, we'll see that AABBs are not enough. For models with many triangles, AABBs cannot help because if the intersection is successful, we will need to iterate through that model's entire triangle list regardless. Is there some way of addressing this?
 
 Micro-optimization: pre-computing the inverse of the ray direction.
 

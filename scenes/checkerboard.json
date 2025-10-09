@@ -1,0 +1,176 @@
+{
+    "Materials":
+    {
+        "light_material":
+        {
+            "TYPE":"Emitting",
+            "RGB":[1.0, 1.0, 1.0],
+            "EMITTANCE":10.0
+        },
+        "wall_material":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.75, 0.75, 0.75]
+        },
+        "wall_orange":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.9, 0.6, 0.2]
+        },
+        "wall_purp":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.8, 0.3, 0.8]
+        },
+        "black_tile":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.1, 0.1, 0.1]
+        },
+        "white_tile":
+        {
+            "TYPE":"Diffuse",
+            "RGB":[0.9, 0.9, 0.9]
+        },
+        "dragon_glass":
+        {
+            "TYPE":"PerfectSpecular",
+            "RGB":[1.0, 1.0, 1.0],
+            "ETA": 1.9
+        },
+        "mirror_red":
+        {
+            "TYPE":"PureReflection",
+            "RGB":[0.0, 0.8, 0.8]
+        }
+    },
+    "Camera":
+    {
+        "RES":[1280, 720],
+        "FOVY":45.0,
+        "ITERATIONS":10000,
+        "DEPTH":8,
+        "EYE":[0.0, 3.0, 18.0],
+        "LOOKAT":[0.0, 3.0, 0.0],
+        "UP":[0.0, 1.0, 0.0]
+    },
+    "Objects":
+    [
+        { "TYPE":"cube", "MATERIAL":"wall_material", "NAME":"ceiling", "TRANS":[0, 15, 0], "ROTAT":[0,0,0], "SCALE":[20, 0.1, 20] },
+        { "TYPE":"cube", "MATERIAL":"mirror_red", "NAME":"back_wall", "TRANS":[0, 7.5, -10], "ROTAT":[0,0,0], "SCALE":[20, 15, 0.1] },
+        {
+            "TYPE":"gltf",
+            "PATH": "../../../models/plane.glb",
+            "BUILD_BVH": false,
+            "MATERIAL":"mirror_red",
+            "TRANS":[0.0,7.5,10.0],
+            "ROTAT":[-90.0,0.0,0.0],
+            "SCALE":[20.0,15,20]
+        },
+        { "TYPE":"cube", "MATERIAL":"wall_purp", "NAME":"left_wall", "TRANS":[-10, 7.5, 0], "ROTAT":[0,0,0], "SCALE":[0.1, 15, 20] },
+        { "TYPE":"cube", "MATERIAL":"wall_orange", "NAME":"right_wall", "TRANS":[10, 7.5, 0], "ROTAT":[0,0,0], "SCALE":[0.1, 15, 20] },
+        { "TYPE":"cube", "MATERIAL":"light_material", "NAME":"light_1", "TRANS":[-5, 14.9, 0], "ROTAT":[0,0,0], "SCALE":[4, 0.1, 8] },
+        { "TYPE":"cube", "MATERIAL":"light_material", "NAME":"light_2", "TRANS":[5, 14.9, 0], "ROTAT":[0,0,0], "SCALE":[4, 0.1, 8] },
+        { "TYPE":"gltf", "PATH":"../../../models/stanford_dragon/stanford_dragon.gltf", "BUILD_BVH":true, "MATERIAL":"dragon_glass", "TRANS":[-0.5, 3.2, 0.0], "ROTAT":[0.0, 35.0, 0.0], "SCALE":[4.5, 4.5, 4.5] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-9.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-7.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-5.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-3.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-1.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[1.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[3.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[5.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[7.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[9.0, 0.0, -9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-9.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-7.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-5.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-3.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-1.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[1.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[3.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[5.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[7.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[9.0, 0.0, -7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-9.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-7.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-5.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-3.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-1.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[1.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[3.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[5.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[7.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[9.0, 0.0, -5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-9.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-7.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-5.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-3.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-1.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[1.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[3.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[5.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[7.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[9.0, 0.0, -3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-9.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-7.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-5.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-3.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-1.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[1.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[3.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[5.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[7.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[9.0, 0.0, -1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-9.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-7.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-5.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-3.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-1.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[1.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[3.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[5.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[7.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[9.0, 0.0, 1.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-9.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-7.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-5.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-3.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-1.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[1.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[3.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[5.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[7.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[9.0, 0.0, 3.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-9.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-7.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-5.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-3.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-1.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[1.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[3.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[5.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[7.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[9.0, 0.0, 5.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-9.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-7.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-5.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-3.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-1.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[1.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[3.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[5.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[7.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[9.0, 0.0, 7.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-9.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-7.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-5.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[-3.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[-1.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[1.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[3.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[5.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"black_tile", "TRANS":[7.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] },
+        { "TYPE":"cube", "MATERIAL":"white_tile", "TRANS":[9.0, 0.0, 9.0], "ROTAT":[0,0,0], "SCALE":[2.0, 0.1, 2.0] }
+    ]
+}
