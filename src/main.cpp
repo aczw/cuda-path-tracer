@@ -226,6 +226,8 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
   int width = ctx->get_width();
   int height = ctx->get_height();
 
+  float sum = 0.0;
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -260,6 +262,8 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
       // Unmap buffer object
       cudaGLUnmapBufferObject(ctx->pbo);
     } else {
+      std::cout << std::format("[Info] Average FPS: {}\n",
+                               sum / gui_data->settings->max_iterations);
       ctx->save_image();
       path_tracer.free();
       cudaDeviceReset();
@@ -285,6 +289,8 @@ void loop(RenderContext* ctx, GLFWwindow* window) {
     prev_gui_data = *gui_data;
     ctx->input.mouse_over_gui = ImGui::GetIO().WantCaptureMouse;
     render_gui(gui_data);
+
+    sum += ImGui::GetIO().Framerate;
 
     glfwSwapBuffers(window);
   }
