@@ -16,7 +16,7 @@ TODO: cover image
 > [!NOTE]
 > I've significantly updated and refactored the base homework code. See an overview of each file's purpose in the [file list](#file-list), as well as [general grading considerations](#for-grading-considerations).
 
-## Brief overview
+## Highlights
 
 For a complete table of contents, use the Outline button that GitHub provides in the upper right corner of this file.
 
@@ -31,6 +31,7 @@ For a complete table of contents, use the Outline button that GitHub provides in
     - [Perfectly specular dielectrics](#perfectly-specular-dielectrics)
   - [Stochastic sampling](#stochastic-sampling-anti-aliasing)
   - [Depth of field and thin lens camera model](#depth-of-field-and-thin-lens-camera-model)
+  - [glTF model loading](#gltf-model-loading)
 
 ## Introduction
 
@@ -396,31 +397,108 @@ We also adjust the ray direction such that it will intersect with the imaginary 
 
 Here we can see the focus point at two different places: the Stanford bunny, and the sphere.
 
-### Discarding paths
+### glTF model loading
 
-TODO(aczw): use difference as metric to measure how effective sampling methods are?
+In order to produce more interesting scenes, it would be beneficial if we could load additional models from online. To that end, I added the `tiny_gltf` library to the project, which parses all the data accessible via C++.
 
-#### Partitioning the paths
+> Note that I do not consider scene hierarchy nor transformations. Models are loaded assuming they are defined at the world origin with zero rotation and translation, and a scale of 1. In the future I would love to add proper glTF scene traversal.
 
-I essentially discard paths we don't need to perform additional computations on by partitioning the buffer, separating paths that are still "active" and those that aren't. I currently do this in two phases:
+#### Creating a mesh
+
+While the library does help us load the raw data, I still had to create a mesh from it! The minimum amount of vertex data I needed were positions and normals. I parse these out of the binary buffers and manually construct triangles out of them. There are two optimizations I make here:
+
+- A `Triangle` struct stores three vertices, but `Vertex` structs do not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
+- While parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
+
+##### Naive implementation
+
+While on paper this should provide a speed-up, in practice my first implementation was still catastrophically slow. It went something like this:
+
+The main issue is that checking whether a position/normal took $O(n)$ time because we have to iterate through the whole list, for every position/normal we want to add. For something like the Stanford dragon, which has over 435,000 unique position data, this made loading the model impossible.
+
+To solve this, we need to dramatically reduce lookup times.
+
+##### Hashing implementation
+
+Instead of using a vector, we can use a map instead, and map each unique data point to its index. At the end, we perform one single $O(n)$ pass to transfer each map entry over to its vector index:
+
+```cpp
+// Same for positions and normals
+for (const auto& [data, idx] : unique_data) {
+  data_list[idx] = data;
+}
+```
+
+By using a map, checking whether a data point is unique is now on average $O(1)$ instead of linear time. We can clearly see the impact in these graphs:
+
+- TODO: graphs here lol
+
+#### Ray-triangle intersection
+
+My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
+
+|**Not taking the minimum `t` value**|**Taking the minimum `t` value**|
+|:-:|:-:|
+|![](images/not_taking_t_min.png)|![](images/taking_t_min.png)|
+
+On the left we can see Suzanne's eyes are protruding out of the face when they should be shadowed by the eyebrows, as seen on the right.
+
+Therefore, similar to the logic for finding the closest geometry, we keep track of the smallest `t` value found so far, and update the intersection data only if we've found a closer one. This means that we cannot return early because the closest triangle may be the last one in the triangle list.
+
+### Intersection culling
+
+Computing intersections with the scene is one of the most expensive operations in the path tracer.
+
+<div align="center"><img src="images/nsight_isect_expensive.png" /></div>
+
+Running Nsight Systems on my executable confirms this. In terms of CUDA operations, 99.6% of overall operations were spent on kernels, with 69% of that being spent on `kernel::find_intersections` itself! Meanwhile, memory operations were only 0.4% of operations, which means that we weren't memory bound.[^5]
+
+If we show the kernel operations in the Events View and sort by duration, we can also see that `kernel::find_intersections` makes up the very top of the list, meaning it makes up the bulk of our compute time.
+
+<div align="center">
+  <img src="images/nsight_isect_longest.png" />
+  <p><i>Intersections all the way down</i></p>
+</div>
+
+So, reducing the number of intersections with the scene will be one of the most high-impact changes we can make. My path tracer offers two solutions: AABBs and BVHs.
+
+#### Axis-aligned bounding boxes (AABB)
+
+Micro-optimization: pre-computing the inverse of the ray direction.
+
+TODO: make graphs
+
+#### Bounding volume hierarchy (BVH)
+
+Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
+
+Of course, having never built one before I needed to do some research. My implementation was primarily guided by the following two resources:
+
+- Sebastian Lague: https://www.youtube.com/watch?v=C1H4zIiCOaI
+- How to build a BVH series: https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+
+### Partitioning path segments
+
+Choosing to launch kernels every path bounce allows us to discard paths we don't need to perform additional computations on anymore. By discard, I mean we dynamically adjust the number of blocks we launch per kernel at runtime.
+
+Each pixel gets a `PathSegment` which stores its current state. All of these segments are stored in a big buffer allocated on device. By partitioning the buffer, we can separate paths that are still "active" and those that aren't. I currently do this in two phases:
 
 - Discarding paths that went out of bounds (OOB)
 - Discarding paths that have intersected with a light
 
-The benefits are twofold: I've rearranged the active paths such that they're now contiguous in the buffer. This also allows me to dynamically adjust the number of blocks I need when configuring the launch parameters for my intersection and shading kernels.
+Partitioning the buffer also rearranges the active paths such that they're now contiguous in the buffer.
 
-- For scenes that are less bounded by walls and have more open space, discarding OOB rays improves performance by a lot.
-- Similarly, scenes that may contain a large number of lights will benefit from the ray light intersection discarding step.
-
-TODO(aczw): comparison graphs, create scenes that demonstrate this LOL
+- For scenes that are less bounded by walls and have more open space, discarding OOB should improve performance.
+- Scenes that are closed will not benefit from partitioning and may even decrease in performance due to the extra overhead of the algorithm not being offset.
+- Scenes that may contain a large number of lights will benefit from the ray light intersection discarding step.
 
 ### Sorting paths by intersection material
 
-Another optimization I made is to keep paths that intersected the same material contiguous in the buffer. I reference the material at an intersection via a `material_id`, so I could simply use `thrust::sort` to perform this action.
+Another optimization I made is to keep paths that intersected the same material contiguous in the buffer. I reference the material at an intersection via a `material_id`, a number, so `thrust::sort` can simply compare the two material IDs of an intersection to perform the sort.
 
-The reason for this change is to reduce random accesses into the global material list within a warp. By grouping these paths together, they all benefit from the potential caching benefits of accessing the same material over and over. The more materials in the scene, the more pronounced this effect will be.
+The reason for this change is to reduce random accesses into the global material list within a warp. When parsing the scene JSON file, we create a `Material` struct for each possible material in the scene, and make it accessible at runtime in a buffer allocated on device. By grouping paths with the same materials together, they all benefit from the caching benefits of accessing the same material over and over within a warp. The more materials and objects in the scene, the more pronounced this effect will be.
 
-TODO(aczw): prove this
+<!--
 
 ### Codebase rewrite
 
@@ -501,68 +579,7 @@ Materials followed a similar pattern.
 
 At first everything was gravy. But then I ran into other bugs. And, when the two most important kernel invocations in your program are wrapped in confusing C++ function calls, it makes it a little difficult to debug errors.
 
-### glTF model loading
-
-I added `tiny_gltf` to the project. It does not consider scene hierarchy or transformations, and only loads the first mesh in the glTF file.
-
-#### Creating a mesh
-
-After loading the raw data, I parse the position and normal buffers and create triangles out of them. There are two optimizations I make here:
-
-- Each triangle stores three vertices. A `Vertex` struct does not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
-- While parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
-
-##### Naive implementation
-
-While on paper this should provide a speed-up, in practice my first implementation was still catastrophically slow. It went something like this:
-
-The main issue is that checking whether a position/normal took $O(n)$ time because we have to iterate through the whole list, for every position/normal we want to add. For something like the Stanford dragon, which has over 435,000 unique position data, this made loading the model impossible.
-
-To solve this, we need to dramatically reduce lookup times.
-
-##### Hashing implementation
-
-Instead of using a vector, we can use a map instead, and map each unique data point to its index. At the end, we perform one single $O(n)$ pass to transfer each map entry over to its vector index:
-
-```cpp
-// Same for positions and normals
-for (const auto& [data, idx] : unique_data) {
-  data_list[idx] = data;
-}
-```
-
-By using a map, checking whether a data point is unique is now on average $O(1)$ instead of linear time. We can clearly see the impact in these graphs:
-
-- TODO: graphs here lol
-
-#### Ray-triangle intersection
-
-My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
-
-|**Not taking the minimum `t` value**|**Taking the minimum `t` value**|
-|:-:|:-:|
-|![](images/not_taking_t_min.png)|![](images/taking_t_min.png)|
-
-On the left we can see Suzanne's eyes are protruding out of the face when they should be shadowed by the eyebrows, as seen on the right.
-
-Therefore, similar to the logic for finding the closest geometry, we keep track of the smallest `t` value found so far, and update the intersection data only if we've found a closer one. This means that we cannot return early because the closest triangle may be the last one in the triangle list.
-
-### Intersection culling
-
-#### Axis-aligned bounding boxes (AABB)
-
-Micro-optimization: pre-computing the inverse of the ray direction.
-
-TODO: make graphs
-
-#### Bounding volume hierarchy (BVH)
-
-Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
-
-Of course, having never built one before I needed to do some research. My implementation was primarily guided by the following two resources:
-
-- Sebastian Lague: https://www.youtube.com/watch?v=C1H4zIiCOaI
-- How to build a BVH series: https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+-->
 
 ## Credits
 
@@ -620,11 +637,11 @@ I've removed the `FILE` key from the `Camera` object because I've modified my ou
 - `PerfectSpecular`
 - `Pbr`
 
-I use VS Code for development, so all my relative paths in the scene files are different from the ones used in Visual Studio. I find that I have to remove two of the "../" for Visual Studio to work.
-
 I removed the `Specular` material type because I didn't technically implement rough specular surfaces.
 
-I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary glTF models (both .gltf and .glb files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the glTF model you wish to load.
+I use VS Code for development, so all my relative paths in the scene files are different from the ones used in Visual Studio. I find that I have to remove two of the "../" for Visual Studio to work.
+
+I added a new `gltf` type for the `TYPE` key under the `Objects` array. This allows you to load arbitrary glTF models (both .gltf and .glb files are supported). When the `TYPE` is `gltf`, my code checks for an additional key called `PATH`. This is an absolute or relative (to the executable directory) path to the glTF model you wish to load. You also have an option to build a BVH for the model. This is controlled by the `BUILD_BVH` key. Set it to `true` or `false`.
 
 I added a `NAME` key under the `Objects` array because I wanted a way to keep track of what each geometry's role was supposed to be. This information could also be useful for debugging purposes.
 
@@ -639,3 +656,4 @@ Some other stuff I've changed that should probably be pointed out:
 [^2]: Small problems such as, you know, having a finite amount of memory in my computer.
 [^3]: We're technically finding the _previous_ ray, since we're choosing a $\omega_i$ to travel to. Remember that we're working backwards from the camera to a light source.
 [^4]: For my path tracer, one side of the ratio is always a vacuum, which has an IOR of 1.0. This simplifies a lot of calculations.
+[^5]: This could just mean my kernels were so inefficient that they were even slower than memory operations, which is a very likely possibility.
