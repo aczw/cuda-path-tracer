@@ -514,12 +514,54 @@ However, we'll see that AABBs are not enough. For models with many triangles, AA
 
 #### Bounding volume hierarchy (BVH)
 
-Micro-optimization: pre-computing the inverse of the ray direction before using it in the ray-AABB intersection test
+BVHs work on the following principle: if the ray has intersected with some bounding box, then anything _outside of that box_ does not need to be checked anymore, and can immediately be discarded. For instance, what if we split our model into two different AABBs, let's say at the midpoint of the model? If the ray intersected with the left AABB, then we know every triangle in the right AABB can be safely ignored.
 
-Of course, having never built one before I needed to do some research. My implementation was primarily guided by the following two resources:
+That's the idea. Of course, having never built one before I needed to do some research. My implementation was primarily guided by the following two resources:
 
-- Sebastian Lague: https://www.youtube.com/watch?v=C1H4zIiCOaI
-- How to build a BVH series: https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/
+- [Sebastian Lague — Coding Adventure: More Ray Tracing!](https://www.youtube.com/watch?v=C1H4zIiCOaI)
+- [Jacco's blog — How to build a BVH series](https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/)
+
+I decided on a binary tree structure. Every node in the tree either has two children or is a leaf. If the node is a leaf, then it contains a list of triangles. Every node also has an AABB. It follows that the AABBs for two children make up the parent's AABB.
+
+While I construct the BVH on the CPU, the data needs to be sent to the GPU. Therefore, a naive implementation of a node like this:
+
+```cpp
+struct BvhNode {
+  Aabb bbox;
+  BvhNode* c0;
+  BvhNode* c1;
+  std::vector<Triangle> triangles;
+};
+```
+
+would not work, because we can't dynamically allocate memory for the triangles, nor can we store references to the node children. Instead, all the BVH nodes need to be stored as a list in a buffer, and the triangles as well. We then store _indexes_ into those buffers in the `BvhNode` struct to act as references.
+
+```cpp
+struct Node {
+  Aabb bbox;
+  int child_idx;
+  int tri_idx;
+  int tri_count;
+};
+```
+
+In my implementation, the children BVH nodes are placed next to each other in the buffer, so we can get away with storing one child index; the other one is located at `child_idx + 1`. 
+
+##### BVH tree traversal
+
+A word on traversing the BVH structure: we're performing this on the GPU, so we can't repeatedly recurse into the children nodes. Trust me, I tried.
+
+Instead, we have to maintain a _stack_ of nodes that we haven't processed. Then, for each node, after we remove it from the stack, we check if it's a leaf or if it has children. If it's a leaf, we perform ray-triangle intersection tests on its list of triangles. Otherwise, we push the two children BVH nodes to the top of the stack, and repeat the steps as long as the stack is not empty.
+
+##### Performance improvements
+
+So, how much do BVHs improve performance?
+
+![](images/graphs/isect_culling.png)
+
+The bottom line is that without BVHs I simply _could not run certain scenes_. Anything above roughly 3,000 triangles would simply take too long to converge to a passable image. For the Stanford bunny and Stanford dragon, loading the scene made my program crash, so I've assigned them a FPS of zero.
+
+From the graph we can see the logarithmic nature of the BVH. At every step of the BVH traversal we remove around half of the current triangles, so while the Stanford dragon has more than 10 times the triangles of the Stanford bunny, the FPS did not significantly drop.
 
 ### Partitioning path segments
 
