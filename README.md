@@ -34,6 +34,8 @@ For a complete table of contents, use the Outline button that GitHub provides in
   - [Stochastic sampling](#stochastic-sampling-anti-aliasing)
   - [Depth of field and thin lens camera model](#depth-of-field-and-thin-lens-camera-model)
   - [glTF model loading](#gltf-model-loading)
+  - [Intersection culling](#intersection-culling)
+    - [Bounding volume hierachy (BVH)](#bounding-volume-hierarchy-bvh)
 
 ## Introduction
 
@@ -403,37 +405,36 @@ Here we can see the focus point at two different places: the Stanford bunny, and
 
 In order to produce more interesting scenes, it would be beneficial if we could load additional models from online. To that end, I added the `tiny_gltf` library to the project, which parses all the data accessible via C++.
 
-> Note that I do not consider scene hierarchy nor transformations. Models are loaded assuming they are defined at the world origin with zero rotation and translation, and a scale of 1. In the future I would love to add proper glTF scene traversal.
+> Note that I do not consider scene hierarchy nor transformations. Models are loaded assuming they are defined at the world origin with zero rotation and translation, and a scale of 1.
+> 
+> In the future I would love to add proper glTF scene traversal.
 
 #### Creating a mesh
 
-While the library does help us load the raw data, I still had to create a mesh from it! The minimum amount of vertex data I needed were positions and normals. I parse these out of the binary buffers and manually construct triangles out of them. There are two optimizations I make here:
+While the library helps us load the raw data, I still have to create a complete mesh from it! The minimum amount of vertex data I needed were positions and normals. I parse these out of the binary buffers specified by glTF and manually construct triangles. 
 
-- A `Triangle` struct stores three vertices, but `Vertex` structs do not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
-- While parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
+A `Triangle` struct stores three vertices, but my `Vertex` structs do not store the actual position and normal values; instead, it stores a `pos_idx` and `nor_idx` into a global `position_list` and `normal_list` buffer available on device. This allows each triangle to be much smaller in size (six `int`s versus six `glm::vec3`s).
 
-##### Naive implementation
+#### Recycling vertex data indices
 
-While on paper this should provide a speed-up, in practice my first implementation was still catastrophically slow. It went something like this:
+When parsing the glTF mesh data, I check if the current position value I want to add already exists in the global position list. If it does, I reuse the index of that position for this triangle. This allows me to send much less position data to the GPU. I do the same thing for normals.
 
-The main issue is that checking whether a position/normal took $O(n)$ time because we have to iterate through the whole list, for every position/normal we want to add. For something like the Stanford dragon, which has over 435,000 unique position data, this made loading the model impossible.
+While on paper this should provide a speed-up, in practice my first implementation was still catastrophically slow. This is because I used `std::find` and stored the vertex data in a `std::vector`. If we do this for every vertex attribute in the mesh, that results in a $O(n^2)$ operation time. For something like the Stanford dragon, which has over 435,000 unique position data, this made loading the model impossible.
 
-To solve this, we need to dramatically reduce lookup times.
-
-##### Hashing implementation
-
-Instead of using a vector, we can use a map instead, and map each unique data point to its index. At the end, we perform one single $O(n)$ pass to transfer each map entry over to its vector index:
+To solve this, we need to dramatically reduce lookup times. On my second try, instead of using a vector, I used a map instead, and paired each unique data point to its index. At the end, we perform one single $O(n)$ pass to transfer each entry over to its vector index:
 
 ```cpp
-// Same for positions and normals
+// Same for positions and normals. Make sure to call data_list.resize() before!
 for (const auto& [data, idx] : unique_data) {
   data_list[idx] = data;
 }
 ```
 
-By using a map, checking whether a data point is unique is now on average $O(1)$ instead of linear time. We can clearly see the impact in these graphs:
+By using a map, checking whether a data point is unique is now on average $O(1)$ instead of linear time.
 
-- TODO: graphs here lol
+![](images/graphs/map_vs_vector_tri_build_time.png)
+
+The graph is a little comical and clearly demonstrates the exponential operation time. Yes, the 1532.75 seconds for `stanford_dragon` meant that my original implementation caused scene loading to take over 25 minutes. I am glad that it's fixed.
 
 #### Ray-triangle intersection
 
