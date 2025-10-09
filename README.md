@@ -38,6 +38,7 @@ For a complete table of contents, use the Outline button that GitHub provides in
     - [Axis-aligned bounding boxes (AABB)](#axis-aligned-bounding-boxes-aabb)
       - [Optimization: pre-computing inverse ray direction](#optimization-pre-computing-inverse-ray-direction)
     - [Bounding volume hierachy (BVH)](#bounding-volume-hierarchy-bvh)
+- [Bloopers](#bloopers)
 
 ## Introduction
 
@@ -666,6 +667,16 @@ Materials followed a similar pattern.
 At first everything was gravy. But then I ran into other bugs. And, when the two most important kernel invocations in your program are wrapped in confusing C++ function calls, it makes it a little difficult to debug errors.
 
 -->
+
+## Bloopers
+
+Here are some failed renders that I thought looked pretty cool.
+
+|![](renders/bloopers/cornell.2025-09-23_00-10-10z.3978samp.png)|![](renders/bloopers/cornell.2025-09-23_00-21-02z.3246samp.png)|
+|:-:|:-:|
+|The seed for my random number generator was off|Objects were self-intersecting|
+|![](renders/bloopers/cornell_2025-09-27_00-38-04z_5000samples.png)|![](renders/bloopers/glass_spheres_2025-10-04_22-00-10z_5247samples.png)|
+|Honestly, no clue what I did here|Messed up my IOR calculations somewhere|
 
 ## Credits
 
