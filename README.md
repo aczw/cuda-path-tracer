@@ -37,7 +37,7 @@ For a complete table of contents, use the Outline button that GitHub provides in
   - [Intersection culling](#intersection-culling)
     - [Axis-aligned bounding boxes (AABB)](#axis-aligned-bounding-boxes-aabb)
       - [Optimization: pre-computing inverse ray direction](#optimization-pre-computing-inverse-ray-direction)
-    - [Bounding volume hierachy (BVH)](#bounding-volume-hierarchy-bvh)
+    - [Bounding volume hierarchy (BVH)](#bounding-volume-hierarchy-bvh)
 - [Bloopers](#bloopers)
 
 ## Introduction
