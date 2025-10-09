@@ -35,6 +35,8 @@ For a complete table of contents, use the Outline button that GitHub provides in
   - [Depth of field and thin lens camera model](#depth-of-field-and-thin-lens-camera-model)
   - [glTF model loading](#gltf-model-loading)
   - [Intersection culling](#intersection-culling)
+    - [Axis-aligned bounding boxes (AABB)](#axis-aligned-bounding-boxes-aabb)
+      - [Optimization: pre-computing inverse ray direction](#optimization-pre-computing-inverse-ray-direction)
     - [Bounding volume hierachy (BVH)](#bounding-volume-hierarchy-bvh)
 
 ## Introduction
@@ -403,7 +405,7 @@ Here we can see the focus point at two different places: the Stanford bunny, and
 
 ### glTF model loading
 
-In order to produce more interesting scenes, it would be beneficial if we could load additional models from online. To that end, I added the `tiny_gltf` library to the project, which parses all the data accessible via C++.
+In order to produce more interesting scenes, it would be beneficial if we could load additional models from online. To that end, I added the `tiny_gltf` library to the project, which parses all the data to C++ structs.
 
 > Note that I do not consider scene hierarchy nor transformations. Models are loaded assuming they are defined at the world origin with zero rotation and translation, and a scale of 1.
 > 
@@ -438,6 +440,8 @@ The graph is a little comical and clearly demonstrates the exponential operation
 
 #### Ray-triangle intersection
 
+A mesh is just a giant list of triangles that encompass it. Since the primitives we're intersecting with aren't spheres or cubes anymore, we need to write a new intersection test function, this time for lists of triangles. Luckily, GLM provides `glm::intersectRayTriangle` for me to start with.
+
 My first implementation was simple and naive. For each triangle in the mesh, we perform a ray-triangle intersection test. If successful, we calculate intersection terms and return early. However, this logic is incorrect because it may not necesarily return the intersection with the *smallest* `t` value.
 
 |**Not taking the minimum `t` value**|**Taking the minimum `t` value**|
@@ -454,9 +458,9 @@ Computing intersections with the scene is one of the most expensive operations i
 
 <div align="center"><img src="images/nsight_isect_expensive.png" /></div>
 
-Running Nsight Systems on my executable confirms this. In terms of CUDA operations, 99.6% of overall operations were spent on kernels, with 69% of that being spent on `kernel::find_intersections` itself! Meanwhile, memory operations were only 0.4% of operations, which means that we weren't memory bound.[^5]
+Running Nsight Systems on my executable confirms this. In terms of CUDA operations, 99.6% of overall operations were spent on kernels, with 69% of those being spent on `kernel::find_intersections` itself! Meanwhile, memory operations were only 0.4% of operations.[^5]
 
-If we show the kernel operations in the Events View and sort by duration, we can also see that `kernel::find_intersections` makes up the very top of the list, meaning it makes up the bulk of our compute time.
+If we show the kernel operations in the Events View and sort by duration, we can also see that `kernel::find_intersections` takes up all the spots at the top of the list, meaning it makes up the bulk of our compute time.
 
 <div align="center">
   <img src="images/nsight_isect_longest.png" />
@@ -467,13 +471,46 @@ So, reducing the number of intersections with the scene will be one of the most 
 
 #### Axis-aligned bounding boxes (AABB)
 
-Axis-aligned bounding boxes are conceptually simple and also easy to implement. 
+AABBs are conceptually simple and also easy to implement. They scale very very well with heavier models, because the data required stays the same: two `glm::vec3`s to represent the minimum and maximum world positions of the model.
+
+```cpp
+struct Aabb {
+  glm::vec3 min = glm::vec3(cuda::std::numeric_limits<float>::max());
+  glm::vec3 max = glm::vec3(cuda::std::numeric_limits<float>::lowest());
+};
+```
+
+Performing operations on an AABB is also extremely easy. To include a new point in the AABB, we take the minimum between the point and the current minimum, and do the same for the maximum. To include a triangle, we do this for each of the three vertices.
+
+```cpp
+/// Adds `point` to the bounding box, growing the bounds if necessary.
+void include(glm::vec3 point) {
+  min = glm::min(min, point);
+  max = glm::max(max, point);
+}
+```
+
+In `kernel::find_intersections`, for each geometry in the scene, we first check if the ray intersects with the AABB, which is (usually) more efficient to compute. If the ray missed, then we can skip the intersection test entirely, and move on to the next geometry.
+
+##### Optimization: pre-computing inverse ray direction
+
+This was an interesting performance gain I wanted to highlight. My AABB-ray intersection test is based on [this article by Tavian Barnes](https://tavianator.com/2022/ray_box_boundary.html). In the algorithm, we have to perform two divisions by the ray direction. About this operation, he writes:
+
+> "_We precompute `ray->dir_inv[d] = 1.0 / ray->dir[d]` to replace division (slow) with multiplication (fast)._"
+
+Really? Would this really make a difference for two division operations? Since a thread is launched for every path segment, every intersection test with scene geometry uses the same ray. So I simply pre-computed the inverse direction once before the loop and passed it into the AABB-ray intersection function. And it turns out, yes, he's very much speaking the truth.
+
+||Pre-computing the inverse|Dividing by direction|
+|-:|:-:|:-:|
+|Average frames per second |59.715|49.567|
+
+Pre-computing the division term made my scenes run faster by _roughly ~20%_ and this held true for most scenes, with those having more objects seeing the most benefit. A cursory search for division times on the GPU led me to [this discussion on NVIDIA Developer forums](https://forums.developer.nvidia.com/t/speed-comparison-of-division-compared-to-other-arithmetic-operations-perhaps-something-like-clock-cycles/168371), which saw division being ~10 times slower than multiplication.
+
+Given that this division would be occurring in a hot loop in my intersection kernel and is entirely unavoidable, the speed up is not surprising. I was surprised at how _much_ it made an impact, though.
+
+##### Issues
 
 However, we'll see that AABBs are not enough. For models with many triangles, AABBs cannot help because if the intersection is successful, we will need to iterate through that model's entire triangle list regardless. Is there some way of addressing this?
-
-Micro-optimization: pre-computing the inverse of the ray direction.
-
-TODO: make graphs
 
 #### Bounding volume hierarchy (BVH)
 
