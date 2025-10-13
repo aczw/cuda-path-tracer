@@ -1,3 +1,6 @@
+> [!NOTE]
+> Please visit [charleszw.com/projects/cuda-path-tracer](https://charleszw.com/projects/cuda-path-tracer) for the most up to date version of this project write-up! It's been significantly edited for conciseness and is much less verbose :)
+
 **University of Pennsylvania, CIS 5650: GPU Programming and Architecture, Project 3**
 
 * Charles Wang
